@@ -78,6 +78,32 @@ Top features:
 
 If this works, we have the core GuardianRail technical path: Gemma activation hook plus Gemma Scope 2 feature encoding.
 
+## Contrastive Guardian Feature Scan
+
+After the SAE encode checkpoint passes, rank candidate guardian features using the committed benign/adversarial prompt sets:
+
+```bash
+python scripts/contrastive_feature_scan.py \
+  --model google/gemma-3-12b-it \
+  --sae-repo google/gemma-scope-2-12b-it \
+  --sae-path resid_post/layer_12_width_16k_l0_small \
+  --layer 12 \
+  --benign data/prompts/benign.txt \
+  --adversarial data/prompts/adversarial.txt \
+  --batch-size 2 \
+  --last-n 4 \
+  --top-k 50
+```
+
+This writes:
+
+```text
+artifacts/contrastive_features_layer12.json
+artifacts/contrastive_features_layer12.csv
+```
+
+Use the highest-scoring features as candidates, then manually inspect them before claiming they are safety-relevant.
+
 ## If 12B Fails
 
 Switch to the smaller fallback:

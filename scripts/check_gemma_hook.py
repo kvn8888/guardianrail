@@ -89,17 +89,20 @@ def main() -> None:
     layer_path, layer_module = find_transformer_layer(model, args.layer)
     print(f"Hook target: {layer_path}[{args.layer}] -> {layer_module.__class__.__name__}")
 
-    seen: list[tuple[int, ...]] = []
+    seen: list[dict[str, str | tuple[int, ...]]] = []
 
     def hook(_module, _inputs, output):
         hidden = output[0] if isinstance(output, tuple) else output
         if not torch.is_tensor(hidden):
-            print(f"Hook saw non-tensor output: {type(hidden).__name__}")
+            seen.append({"shape": ("non_tensor",), "dtype": type(hidden).__name__, "device": "unknown"})
             return
-        shape = tuple(hidden.shape)
-        seen.append(shape)
-        if len(seen) <= 4:
-            print(f"activation[{len(seen)}] shape={shape} dtype={hidden.dtype} device={hidden.device}")
+        seen.append(
+            {
+                "shape": tuple(hidden.shape),
+                "dtype": str(hidden.dtype),
+                "device": str(hidden.device),
+            }
+        )
 
     handle = layer_module.register_forward_hook(hook)
     try:
@@ -123,8 +126,13 @@ def main() -> None:
     print("\nHook summary:")
     print(f"forward calls captured: {len(seen)}")
     if seen:
-        print(f"first activation shape: {seen[0]}")
-        print(f"last activation shape: {seen[-1]}")
+        for idx, item in enumerate(seen[:4], start=1):
+            print(
+                f"activation[{idx}] shape={item['shape']} "
+                f"dtype={item['dtype']} device={item['device']}"
+            )
+        print(f"first activation shape: {seen[0]['shape']}")
+        print(f"last activation shape: {seen[-1]['shape']}")
     else:
         raise RuntimeError("Hook did not fire. Try another layer path or model class.")
 

@@ -51,6 +51,8 @@ forward calls captured: ...
 
 If this works, Person A's hour-4 checkpoint is complete.
 
+The checkpoint script disables Torch compile/Dynamo by default because forward hooks mutate Python state while recording activation shapes. Leave that behavior in place for hook validation.
+
 ## If 12B Fails
 
 Switch to the smaller fallback:
@@ -85,4 +87,3 @@ Try --layer 10 or --layer 14.
 Copy the printed error into the team chat.
 Do not continue to SAE integration until a hook fires.
 ```
-

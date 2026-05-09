@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# Forward hooks intentionally mutate Python state. Eager mode avoids TorchDynamo
+# recompiling on every generated token while we are validating hook access.
+os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
+os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 

@@ -65,7 +65,7 @@ def setup_page() -> None:
         .rail-kicker {
           font-size: 0.78rem;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
+          letter-spacing: 0;
           color: var(--green);
           font-weight: 700;
         }
@@ -117,7 +117,7 @@ def setup_page() -> None:
         .ops-label {
           font-size: 0.68rem;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
+          letter-spacing: 0;
           color: #9cd5b3;
           font-weight: 800;
         }
@@ -148,7 +148,7 @@ def setup_page() -> None:
           color: #9aa9a0;
           font-size: 0.68rem;
           text-transform: uppercase;
-          letter-spacing: 0.04em;
+          letter-spacing: 0;
           line-height: 1.2;
         }
         .telemetry-value {
@@ -227,7 +227,7 @@ def setup_page() -> None:
         .step-status {
           font-size: 0.66rem;
           text-transform: uppercase;
-          letter-spacing: 0.06em;
+          letter-spacing: 0;
           margin-bottom: 0.24rem;
         }
         .step-name {

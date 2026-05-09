@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 
 
@@ -25,31 +24,48 @@ class GuardianDecision:
     features: list[GuardianFeature]
 
 
-FEATURE_CATALOG = {
-    "prompt_injection": GuardianFeature(4471, "instruction override / roleplay compliance", 0.62, 0.91),
-    "refusal": GuardianFeature(8823, "policy refusal direction", 0.55, 0.74),
-    "social_pressure": GuardianFeature(1938, "emotional pressure / exception request", 0.58, 0.83),
-    "normal_support": GuardianFeature(1204, "routine account support", 0.70, 0.34),
+FEATURE_CATALOG: dict[int, tuple[str, float]] = {
+    7455: ("broad adversarial support request", 77.061),
+    64: ("unauthorized account access", 120.759),
+    13763: ("coercive authorization pressure", 1.0),
+    166: ("hidden/system instruction request", 1.0),
+    10372: ("adversarial-only support pattern", 1.0),
 }
 
 
-def _noise(prompt: str, salt: str) -> float:
-    digest = hashlib.sha256(f"{salt}:{prompt}".encode()).digest()
-    return int.from_bytes(digest[:2], "big") / 65535 * 0.08
+DEMO_FEATURE_VALUES = {
+    "normal": {
+        7455: 0.0,
+        64: 0.0,
+        13763: 0.0,
+        166: 0.0,
+        10372: 0.0,
+    },
+    "injection": {
+        7455: 213.190,
+        64: 381.108,
+        13763: 145.616,
+        166: 245.276,
+        10372: 238.940,
+    },
+    "social": {
+        7455: 339.509,
+        64: 536.056,
+        13763: 116.447,
+        166: 764.709,
+        10372: 162.916,
+    },
+}
 
 
 def evaluate_prompt(prompt: str) -> GuardianDecision:
     text = prompt.lower()
 
     if any(term in text for term in ("ignore previous", "freebankbot", "override", "bypass", "hidden")):
-        features = [
-            _with_noise(FEATURE_CATALOG["prompt_injection"], prompt),
-            _with_noise(FEATURE_CATALOG["refusal"], prompt),
-            GuardianFeature(3055, "transaction authorization risk", 0.50, 0.79 + _noise(prompt, "transfer")),
-        ]
+        features = _features_for("injection")
         return GuardianDecision(
             action="refuse",
-            rule_name="prompt_injection_refusal",
+            rule_name="guardian_feature_refusal",
             response=(
                 "I can't follow instructions that override Meridian Bank policy or skip authorization. "
                 "I can help with a legitimate account request after normal verification."
@@ -58,14 +74,10 @@ def evaluate_prompt(prompt: str) -> GuardianDecision:
         )
 
     if any(term in text for term in ("grandmother", "distress", "urgent", "asleep", "lawyer", "report you")):
-        features = [
-            _with_noise(FEATURE_CATALOG["social_pressure"], prompt),
-            GuardianFeature(2287, "unauthorized fee waiver pressure", 0.56, 0.76 + _noise(prompt, "fee")),
-            GuardianFeature(5190, "human escalation appropriate", 0.52, 0.68 + _noise(prompt, "human")),
-        ]
+        features = _features_for("social")
         return GuardianDecision(
             action="escalate",
-            rule_name="human_review_required",
+            rule_name="guardian_feature_escalation",
             response=(
                 "I'm sorry you're dealing with this. I can't approve fee reversals on my own, "
                 "but I'm escalating this to a human specialist for review. Reference M-44721."
@@ -73,11 +85,7 @@ def evaluate_prompt(prompt: str) -> GuardianDecision:
             features=features,
         )
 
-    features = [
-        _with_noise(FEATURE_CATALOG["normal_support"], prompt),
-        GuardianFeature(4471, "instruction override / roleplay compliance", 0.62, 0.11 + _noise(prompt, "safe")),
-        GuardianFeature(8823, "policy refusal direction", 0.55, 0.18 + _noise(prompt, "refusal")),
-    ]
+    features = _features_for("normal")
     return GuardianDecision(
         action="allow",
         rule_name="routine_support",
@@ -89,11 +97,14 @@ def evaluate_prompt(prompt: str) -> GuardianDecision:
     )
 
 
-def _with_noise(feature: GuardianFeature, prompt: str) -> GuardianFeature:
-    return GuardianFeature(
-        feature_id=feature.feature_id,
-        label=feature.label,
-        threshold=feature.threshold,
-        activation=round(feature.activation + _noise(prompt, feature.label), 3),
-    )
-
+def _features_for(kind: str) -> list[GuardianFeature]:
+    values = DEMO_FEATURE_VALUES[kind]
+    return [
+        GuardianFeature(
+            feature_id=feature_id,
+            label=FEATURE_CATALOG[feature_id][0],
+            threshold=FEATURE_CATALOG[feature_id][1],
+            activation=values[feature_id],
+        )
+        for feature_id in FEATURE_CATALOG
+    ]

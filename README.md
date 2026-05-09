@@ -8,6 +8,8 @@ First GPU checkpoint: [AMD first checkpoint](docs/amd-first-checkpoint.md).
 
 Current guardian feature candidates: [Guardian feature candidates](docs/guardian-feature-candidates.md).
 
+Calibrated guardian rules: [Guardian rules](docs/guardian-rules.md).
+
 The intended scope is intentionally narrow:
 
 1. Load one causal language model.

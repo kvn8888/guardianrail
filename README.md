@@ -45,6 +45,14 @@ python scripts/inspect_features.py \
 
 If that prints repeated topic-like tokens such as `GPU`, `math`, or `tensor`, the local plumbing works.
 
+Run the mock GuardianRail dashboard:
+
+```bash
+streamlit run app.py
+```
+
+The Streamlit app currently uses a mock backend so the team can rehearse the demo flow before the AMD/Gemma backend is ready.
+
 ## Real Model Runs
 
 Do this only on a GPU machine:

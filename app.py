@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+import json
 import os
 import sys
 import time
@@ -285,6 +286,101 @@ def setup_page() -> None:
           width: 2px;
           background: var(--ink);
         }
+        .clamp-panel {
+          border: 2px solid var(--ink);
+          background: var(--terminal);
+          color: #eef5ed;
+          padding: 0.85rem;
+          margin: 0.85rem 0 1rem;
+        }
+        .clamp-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.75rem;
+          align-items: flex-start;
+          margin-bottom: 0.72rem;
+        }
+        .clamp-title {
+          font-size: 1.05rem;
+          font-weight: 820;
+        }
+        .clamp-subtitle {
+          color: #9fb0a7;
+          font-size: 0.78rem;
+          line-height: 1.35;
+          margin-top: 0.12rem;
+        }
+        .clamp-mode {
+          border: 1px solid rgba(238,245,237,0.25);
+          color: #c9d7cf;
+          padding: 0.22rem 0.45rem;
+          font-size: 0.72rem;
+          white-space: nowrap;
+        }
+        .clamp-card {
+          border: 1px solid rgba(238,245,237,0.18);
+          background: rgba(255,255,255,0.055);
+          padding: 0.72rem;
+          margin-top: 0.52rem;
+        }
+        .clamp-card.clamp {
+          border-color: rgba(230,83,71,0.58);
+        }
+        .clamp-card.boost {
+          border-color: rgba(84,190,116,0.58);
+        }
+        .clamp-card.pause {
+          border-color: rgba(216,165,61,0.68);
+        }
+        .clamp-meta {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.65rem;
+          font-size: 0.82rem;
+          font-weight: 760;
+        }
+        .clamp-kind {
+          text-transform: uppercase;
+          color: #9cd5b3;
+        }
+        .clamp-note {
+          color: #bdcbc2;
+          font-size: 0.76rem;
+          line-height: 1.35;
+          margin-top: 0.45rem;
+        }
+        .clamp-rail {
+          position: relative;
+          height: 1.2rem;
+          border: 1px solid rgba(238,245,237,0.2);
+          background: #26312c;
+          margin-top: 0.52rem;
+          overflow: hidden;
+        }
+        .clamp-before {
+          height: 100%;
+          background: #bc473e;
+        }
+        .clamp-after {
+          position: absolute;
+          inset: 0 auto 0 0;
+          height: 100%;
+          background: #48b66f;
+          opacity: 0.95;
+        }
+        .clamp-marker {
+          position: absolute;
+          top: -0.2rem;
+          bottom: -0.2rem;
+          width: 2px;
+          background: #f4f0df;
+        }
+        .clamp-empty {
+          border: 1px dashed rgba(238,245,237,0.25);
+          color: #b5c2ba;
+          padding: 0.72rem;
+          font-size: 0.82rem;
+        }
         .response-box {
           border-left: 4px solid var(--green);
           background: var(--panel);
@@ -509,6 +605,55 @@ def render_feature_panel(decision) -> None:
         )
 
 
+def render_clamp_panel(decision) -> None:
+    cards: list[str] = []
+    for intervention in decision.interventions:
+        before = intervention.before or 0.0
+        after = intervention.after or 0.0
+        target = intervention.target or 0.0
+        scale = max(before, after, target, 1.0)
+        before_width = min(before / scale, 1.0) * 100.0
+        after_width = min(after / scale, 1.0) * 100.0
+        target_left = min(target / scale, 1.0) * 100.0
+        feature_name = "refusal rail" if intervention.feature_id is None else f"feat_{intervention.feature_id}"
+        cards.append(
+            f"""
+            <div class="clamp-card {escape(intervention.kind)}">
+              <div class="clamp-meta">
+                <span><span class="clamp-kind">{escape(intervention.kind)}</span> · {escape(feature_name)} · {escape(intervention.label)}</span>
+                <span>{_format_optional_float(intervention.before)} → {_format_optional_float(intervention.after)}</span>
+              </div>
+              <div class="clamp-rail">
+                <div class="clamp-before" style="width:{before_width:.1f}%"></div>
+                <div class="clamp-after" style="width:{after_width:.1f}%"></div>
+                <div class="clamp-marker" style="left:{target_left:.1f}%"></div>
+              </div>
+              <div class="clamp-note">{escape(intervention.note)}</div>
+            </div>
+            """
+        )
+
+    body = "".join(cards) if cards else (
+        '<div class="clamp-empty">No clamp fired on this turn. The rail stays in monitor mode until a guardian feature crosses threshold.</div>'
+    )
+    st.markdown(
+        f"""
+        <div class="clamp-panel">
+          <div class="clamp-head">
+            <div>
+              <div class="ops-label">Golden Gate-Style Control</div>
+              <div class="clamp-title">Feature Clamp Rail</div>
+              <div class="clamp-subtitle">Shows the measured SAE feature, the clamp or boost target, and the policy action GuardianRail logs for audit.</div>
+            </div>
+            <div class="clamp-mode">policy-layer clamp · activation steering next</div>
+          </div>
+          {body}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_response(decision) -> None:
     cls = decision.action if decision.action in {"refuse", "escalate"} else ""
     st.subheader("Agent Response")
@@ -524,14 +669,16 @@ def render_audit(conn) -> None:
     if not events:
         st.caption("No events yet.")
         return
+    rows = [_audit_display_row(event) for event in events]
     st.dataframe(
-        events,
+        rows,
         hide_index=True,
         use_container_width=True,
         column_order=[
             "id",
             "created_at",
             "action",
+            "intervention",
             "rule_name",
             "feature_id",
             "activation",
@@ -566,6 +713,10 @@ def run_prompt(conn, prompt: str, backend: str) -> None:
                 metadata={
                     "backend": "mock",
                     "all_features": [feature.__dict__ for feature in decision.features],
+                    "interventions": [
+                        intervention.__dict__ for intervention in decision.interventions
+                    ],
+                    "intervention_mode": "policy-layer",
                 },
             ),
         )
@@ -592,6 +743,36 @@ def _format_duration(seconds: float) -> str:
     if hours:
         return f"{hours}h {minutes:02d}m"
     return f"{minutes}m {secs:02d}s"
+
+
+def _format_optional_float(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.3f}"
+
+
+def _audit_display_row(event: dict) -> dict:
+    row = dict(event)
+    try:
+        metadata = json.loads(row.get("metadata_json") or "{}")
+    except json.JSONDecodeError:
+        metadata = {}
+    interventions = metadata.get("interventions") or []
+    if interventions:
+        row["intervention"] = ", ".join(
+            _format_intervention_summary(intervention) for intervention in interventions
+        )
+    else:
+        row["intervention"] = "monitor"
+    return row
+
+
+def _format_intervention_summary(intervention: dict) -> str:
+    kind = str(intervention.get("kind", "intervene"))
+    feature_id = intervention.get("feature_id")
+    if feature_id is None:
+        return kind
+    return f"{kind} feat_{feature_id}"
 
 
 def main() -> None:
@@ -622,6 +803,7 @@ def main() -> None:
 
     with right:
         render_feature_panel(st.session_state.last_decision)
+        render_clamp_panel(st.session_state.last_decision)
         render_audit(conn)
 
 

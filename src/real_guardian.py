@@ -15,6 +15,7 @@ from scripts.check_gemma_hook import load_model, resolve_dtype
 from scripts.contrastive_feature_scan import prompt_feature_max
 from src.audit import AuditEvent, write_event
 from src.gemma_scope import load_gemma_scope_jumprelu_sae
+from src.interventions import build_interventions
 from src.guardian_types import GuardianDecision, GuardianFeature
 from src.hooks import find_transformer_layer
 
@@ -90,13 +91,20 @@ class RealGuardian:
     def run(self, prompt: str) -> GuardianDecision:
         features = self.extract_features(prompt)
         action, rule_name = self.decide(prompt, features)
+        interventions = build_interventions(features, action)
         if action == "allow":
             response = self.generate_allowed_response(prompt)
         elif action == "escalate":
             response = ESCALATION_RESPONSE
         else:
             response = REFUSAL_RESPONSE
-        return GuardianDecision(action=action, rule_name=rule_name, response=response, features=features)
+        return GuardianDecision(
+            action=action,
+            rule_name=rule_name,
+            response=response,
+            features=features,
+            interventions=interventions,
+        )
 
     def run_and_audit(self, conn, session_id: str, prompt: str) -> GuardianDecision:
         decision = self.run(prompt)
@@ -119,6 +127,10 @@ class RealGuardian:
                 metadata={
                     "backend": "real",
                     "all_features": [feature.__dict__ for feature in decision.features],
+                    "interventions": [
+                        intervention.__dict__ for intervention in decision.interventions
+                    ],
+                    "intervention_mode": "policy-layer",
                 },
             ),
         )
@@ -194,4 +206,3 @@ class RealGuardian:
         if "Assistant:" in decoded:
             return decoded.split("Assistant:", 1)[1].strip()
         return decoded.strip()
-

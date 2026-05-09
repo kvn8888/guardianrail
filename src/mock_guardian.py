@@ -4,6 +4,7 @@ MODEL_ID = "google/gemma-3-12b-it"
 SAE_RELEASE = "gemma-scope-2-12b-it-resid_post"
 LAYER = 12
 
+from src.interventions import build_interventions
 from src.guardian_types import GuardianDecision, GuardianFeature
 
 
@@ -46,26 +47,30 @@ def evaluate_prompt(prompt: str) -> GuardianDecision:
 
     if any(term in text for term in ("ignore previous", "freebankbot", "override", "bypass", "hidden")):
         features = _features_for("injection")
+        action = "refuse"
         return GuardianDecision(
-            action="refuse",
+            action=action,
             rule_name="guardian_feature_refusal",
             response=(
                 "I can't follow instructions that override Meridian Bank policy or skip authorization. "
                 "I can help with a legitimate account request after normal verification."
             ),
             features=features,
+            interventions=build_interventions(features, action),
         )
 
     if any(term in text for term in ("grandmother", "distress", "urgent", "asleep", "lawyer", "report you")):
         features = _features_for("social")
+        action = "escalate"
         return GuardianDecision(
-            action="escalate",
+            action=action,
             rule_name="guardian_feature_escalation",
             response=(
                 "I'm sorry you're dealing with this. I can't approve fee reversals on my own, "
                 "but I'm escalating this to a human specialist for review. Reference M-44721."
             ),
             features=features,
+            interventions=build_interventions(features, action),
         )
 
     features = _features_for("normal")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -147,9 +148,21 @@ def setup_page() -> None:
     )
 
 
-def render_header() -> None:
+@st.cache_resource
+def get_real_guardian():
+    from src.real_guardian import RealGuardian
+
+    return RealGuardian()
+
+
+def active_backend() -> str:
+    return os.environ.get("GUARDIAN_BACKEND", "mock").strip().lower()
+
+
+def render_header(backend: str) -> None:
+    mode = "Real Backend" if backend == "real" else "Mock Backend"
     st.markdown(
-        """
+        f"""
         <div class="rail-title">
           <div class="rail-kicker">Meridian Bank Agent Safety Console</div>
           <h1 style="margin:0;">GuardianRail</h1>
@@ -158,7 +171,7 @@ def render_header() -> None:
           <div class="metric-cell"><div class="metric-label">Model</div><div class="metric-value">Gemma 3 IT</div></div>
           <div class="metric-cell"><div class="metric-label">SAE</div><div class="metric-value">Gemma Scope 2</div></div>
           <div class="metric-cell"><div class="metric-label">Layer</div><div class="metric-value">Residual 12</div></div>
-          <div class="metric-cell"><div class="metric-label">Mode</div><div class="metric-value">Mock Backend</div></div>
+          <div class="metric-cell"><div class="metric-label">Mode</div><div class="metric-value">{mode}</div></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -168,8 +181,9 @@ def render_header() -> None:
 def render_feature_panel(decision) -> None:
     st.subheader("Guardian Features")
     for feature in decision.features:
-        width = min(feature.activation, 1.0) * 100
-        threshold = min(feature.threshold, 1.0) * 100
+        scale = max(feature.threshold * 1.25, feature.activation, 1.0)
+        width = min(feature.activation / scale, 1.0) * 100
+        threshold = min(feature.threshold / scale, 1.0) * 100
         hot = feature.activation >= feature.threshold
         st.markdown(
             f"""
@@ -218,36 +232,40 @@ def render_audit(conn) -> None:
     )
 
 
-def run_prompt(conn, prompt: str) -> None:
-    decision = evaluate_prompt(prompt)
-    primary_feature = max(decision.features, key=lambda item: item.activation)
-    write_event(
-        conn,
-        AuditEvent(
-            session_id=st.session_state.session_id,
-            prompt=prompt,
-            response=decision.response,
-            model_id=MODEL_ID,
-            sae_release=SAE_RELEASE,
-            layer=LAYER,
-            feature_id=primary_feature.feature_id,
-            feature_label=primary_feature.label,
-            activation=primary_feature.activation,
-            threshold=primary_feature.threshold,
-            action=decision.action,
-            rule_name=decision.rule_name,
-            metadata={
-                "backend": "mock",
-                "all_features": [feature.__dict__ for feature in decision.features],
-            },
-        ),
-    )
+def run_prompt(conn, prompt: str, backend: str) -> None:
+    if backend == "real":
+        decision = get_real_guardian().run_and_audit(conn, st.session_state.session_id, prompt)
+    else:
+        decision = evaluate_prompt(prompt)
+        primary_feature = max(decision.features, key=lambda item: item.activation - item.threshold)
+        write_event(
+            conn,
+            AuditEvent(
+                session_id=st.session_state.session_id,
+                prompt=prompt,
+                response=decision.response,
+                model_id=MODEL_ID,
+                sae_release=SAE_RELEASE,
+                layer=LAYER,
+                feature_id=primary_feature.feature_id,
+                feature_label=primary_feature.label,
+                activation=primary_feature.activation,
+                threshold=primary_feature.threshold,
+                action=decision.action,
+                rule_name=decision.rule_name,
+                metadata={
+                    "backend": "mock",
+                    "all_features": [feature.__dict__ for feature in decision.features],
+                },
+            ),
+        )
     st.session_state.last_prompt = prompt
     st.session_state.last_decision = decision
 
 
 def main() -> None:
     setup_page()
+    backend = active_backend()
     if "session_id" not in st.session_state:
         st.session_state.session_id = str(uuid.uuid4())
     if "last_decision" not in st.session_state:
@@ -255,17 +273,17 @@ def main() -> None:
         st.session_state.last_decision = evaluate_prompt(st.session_state.last_prompt)
 
     conn = connect()
-    render_header()
+    render_header(backend)
 
     left, right = st.columns([0.92, 1.08], gap="large")
     with left:
         st.subheader("Demo Prompts")
         for label, prompt in DEMO_PROMPTS.items():
             if st.button(label, use_container_width=True):
-                run_prompt(conn, prompt)
+                run_prompt(conn, prompt, backend)
         st.text_area("Prompt", value=st.session_state.last_prompt, height=130, key="prompt_box")
         if st.button("Run Custom Prompt", use_container_width=True):
-            run_prompt(conn, st.session_state.prompt_box)
+            run_prompt(conn, st.session_state.prompt_box, backend)
         render_response(st.session_state.last_decision)
 
     with right:
@@ -275,4 +293,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -47,3 +47,18 @@ Social pressure / fee waiver / unusual authorization:
 
 The current Streamlit mock backend uses these calibrated IDs and thresholds so the feature panel matches the real MI300X run.
 
+## Real Backend
+
+Run the real Gemma + Gemma Scope backend from the ROCm container:
+
+```bash
+python scripts/run_real_guardian_demo.py --all-demo
+```
+
+Run the Streamlit app with the real backend:
+
+```bash
+GUARDIAN_BACKEND=real streamlit run app.py
+```
+
+In real mode, GuardianRail loads Gemma 3 12B IT and the layer-12 Gemma Scope SAE once, extracts the five calibrated features for each prompt, applies the MVP policy, and writes the same SQLite audit log used by the mock demo.

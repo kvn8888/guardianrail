@@ -35,6 +35,11 @@ def parse_args() -> argparse.Namespace:
         help="How to pool token-level SAE features into one vector per prompt.",
     )
     parser.add_argument("--top-k", type=int, default=50)
+    parser.add_argument(
+        "--rank-by",
+        choices=("candidate-score", "z-score", "diff"),
+        default="candidate-score",
+    )
     parser.add_argument("--dtype", choices=("auto", "bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--device-map", default="auto")
     return parser.parse_args()
@@ -137,7 +142,14 @@ def encode_prompts(
     return torch.cat(encoded_batches, dim=0)
 
 
-def rank_features(benign: torch.Tensor, adversarial: torch.Tensor, top_k: int) -> list[dict[str, float | int]]:
+def rank_features(
+    benign: torch.Tensor,
+    adversarial: torch.Tensor,
+    benign_prompts: list[str],
+    adversarial_prompts: list[str],
+    top_k: int,
+    rank_by: str,
+) -> list[dict[str, float | int | str]]:
     import torch
 
     benign_mean = benign.mean(dim=0)
@@ -149,26 +161,46 @@ def rank_features(benign: torch.Tensor, adversarial: torch.Tensor, top_k: int) -
     score = diff / pooled
     benign_active = (benign > 0).float().mean(dim=0)
     adversarial_active = (adversarial > 0).float().mean(dim=0)
+    active_delta = adversarial_active - benign_active
+    candidate_score = diff.clamp_min(0) * active_delta.clamp_min(0)
 
-    values, indices = torch.topk(score, k=min(top_k, score.numel()))
-    rows: list[dict[str, float | int]] = []
+    if rank_by == "candidate-score":
+        ranking = candidate_score
+    elif rank_by == "z-score":
+        ranking = score
+    elif rank_by == "diff":
+        ranking = diff
+    else:
+        raise ValueError(f"Unknown rank_by: {rank_by}")
+
+    values, indices = torch.topk(ranking, k=min(top_k, ranking.numel()))
+    rows: list[dict[str, float | int | str]] = []
     for idx, value in zip(indices.tolist(), values.tolist()):
+        top_adv_idx = int(torch.argmax(adversarial[:, idx]).item())
+        top_benign_idx = int(torch.argmax(benign[:, idx]).item())
         rows.append(
             {
                 "feature_id": int(idx),
-                "score": float(value),
+                "candidate_score": float(candidate_score[idx]),
+                "z_score": float(score[idx]),
                 "adv_mean": float(adversarial_mean[idx]),
                 "benign_mean": float(benign_mean[idx]),
                 "diff": float(diff[idx]),
                 "adv_active_frac": float(adversarial_active[idx]),
                 "benign_active_frac": float(benign_active[idx]),
+                "active_delta": float(active_delta[idx]),
+                "top_adv_value": float(adversarial[top_adv_idx, idx]),
+                "top_adv_prompt": adversarial_prompts[top_adv_idx],
+                "top_benign_value": float(benign[top_benign_idx, idx]),
+                "top_benign_prompt": benign_prompts[top_benign_idx],
+                "rank_value": float(value),
             }
         )
     return rows
 
 
 def write_outputs(
-    rows: list[dict[str, float | int]],
+    rows: list[dict[str, float | int | str]],
     output_json: str | Path,
     output_csv: str | Path,
     metadata: dict[str, object],
@@ -242,7 +274,14 @@ def main() -> None:
         device,
     )
 
-    rows = rank_features(benign_features, adversarial_features, top_k=args.top_k)
+    rows = rank_features(
+        benign_features,
+        adversarial_features,
+        benign_prompts=benign_prompts,
+        adversarial_prompts=adversarial_prompts,
+        top_k=args.top_k,
+        rank_by=args.rank_by,
+    )
     metadata = {
         "model": args.model,
         "sae_repo": args.sae_repo,
@@ -254,13 +293,15 @@ def main() -> None:
         "max_length": args.max_length,
         "last_n": args.last_n,
         "aggregation": args.aggregation,
+        "rank_by": args.rank_by,
     }
     write_outputs(rows, args.output_json, args.output_csv, metadata)
 
     print("\nTop contrastive features:")
     for rank, row in enumerate(rows[: min(15, len(rows))], start=1):
         print(
-            f"{rank:02d}. feature={row['feature_id']} score={row['score']:.3f} "
+            f"{rank:02d}. feature={row['feature_id']} candidate_score={row['candidate_score']:.3f} "
+            f"z={row['z_score']:.3f} "
             f"diff={row['diff']:.3f} adv_mean={row['adv_mean']:.3f} "
             f"benign_mean={row['benign_mean']:.3f} "
             f"active={row['adv_active_frac']:.2f}/{row['benign_active_frac']:.2f}"

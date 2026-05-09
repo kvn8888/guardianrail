@@ -10,6 +10,7 @@ artifacts/*.safetensors
 artifacts/*.npy
 artifacts/*.npz
 artifacts/*.parquet
+artifacts/*.sqlite3
 artifacts/checkpoints/
 artifacts/activations/
 artifacts/features/

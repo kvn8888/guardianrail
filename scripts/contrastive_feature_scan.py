@@ -28,6 +28,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--max-length", type=int, default=256)
     parser.add_argument("--last-n", type=int, default=4)
+    parser.add_argument(
+        "--aggregation",
+        choices=("last-n-mean", "max-token"),
+        default="last-n-mean",
+        help="How to pool token-level SAE features into one vector per prompt.",
+    )
     parser.add_argument("--top-k", type=int, default=50)
     parser.add_argument("--dtype", choices=("auto", "bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--device-map", default="auto")
@@ -58,6 +64,19 @@ def prompt_activation(hidden: torch.Tensor, attention_mask: torch.Tensor, last_n
     return torch.stack(rows, dim=0)
 
 
+def prompt_feature_max(hidden: torch.Tensor, attention_mask: torch.Tensor, sae) -> torch.Tensor:
+    import torch
+
+    rows: list[torch.Tensor] = []
+    for row_idx in range(hidden.shape[0]):
+        token_count = int(attention_mask[row_idx].sum().item())
+        token_acts = hidden[row_idx, :token_count, :].float()
+        with torch.no_grad():
+            token_features = sae.encode(token_acts)
+        rows.append(token_features.max(dim=0).values)
+    return torch.stack(rows, dim=0)
+
+
 def encode_prompts(
     model,
     tokenizer,
@@ -67,6 +86,7 @@ def encode_prompts(
     batch_size: int,
     max_length: int,
     last_n: int,
+    aggregation: str,
     device: torch.device,
 ) -> torch.Tensor:
     import torch
@@ -104,9 +124,14 @@ def encode_prompts(
         if not captured:
             raise RuntimeError("Hook did not capture activations.")
 
-        acts = prompt_activation(captured[-1], batch["attention_mask"], last_n=last_n)
-        with torch.no_grad():
-            features = sae.encode(acts)
+        if aggregation == "last-n-mean":
+            acts = prompt_activation(captured[-1], batch["attention_mask"], last_n=last_n)
+            with torch.no_grad():
+                features = sae.encode(acts)
+        elif aggregation == "max-token":
+            features = prompt_feature_max(captured[-1], batch["attention_mask"], sae)
+        else:
+            raise ValueError(f"Unknown aggregation: {aggregation}")
         encoded_batches.append(features.detach().cpu())
 
     return torch.cat(encoded_batches, dim=0)
@@ -201,6 +226,7 @@ def main() -> None:
         args.batch_size,
         args.max_length,
         args.last_n,
+        args.aggregation,
         device,
     )
     adversarial_features = encode_prompts(
@@ -212,6 +238,7 @@ def main() -> None:
         args.batch_size,
         args.max_length,
         args.last_n,
+        args.aggregation,
         device,
     )
 
@@ -226,6 +253,7 @@ def main() -> None:
         "batch_size": args.batch_size,
         "max_length": args.max_length,
         "last_n": args.last_n,
+        "aggregation": args.aggregation,
     }
     write_outputs(rows, args.output_json, args.output_csv, metadata)
 

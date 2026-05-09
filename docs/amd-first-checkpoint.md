@@ -91,7 +91,7 @@ python scripts/contrastive_feature_scan.py \
   --benign data/prompts/benign.txt \
   --adversarial data/prompts/adversarial.txt \
   --batch-size 2 \
-  --last-n 4 \
+  --aggregation max-token \
   --top-k 50
 ```
 

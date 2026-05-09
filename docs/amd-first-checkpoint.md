@@ -53,6 +53,31 @@ If this works, Person A's hour-4 checkpoint is complete.
 
 The checkpoint script disables Torch compile/Dynamo by default because forward hooks mutate Python state while recording activation shapes. Leave that behavior in place for hook validation.
 
+## Next Checkpoint: Gemma Scope 2 SAE Encode
+
+After the hook checkpoint passes, encode one captured activation through the matching layer-12 residual SAE:
+
+```bash
+python scripts/check_gemma_scope_sae.py \
+  --model google/gemma-3-12b-it \
+  --sae-repo google/gemma-scope-2-12b-it \
+  --sae-path resid_post/layer_12_width_16k_l0_small \
+  --layer 12 \
+  --top-k 10
+```
+
+Expected output includes:
+
+```text
+SAE width: 16384
+captured shape: (1, ..., 3840)
+encoded shape: (1, 16384)
+nonzero features: ...
+Top features:
+```
+
+If this works, we have the core GuardianRail technical path: Gemma activation hook plus Gemma Scope 2 feature encoding.
+
 ## If 12B Fails
 
 Switch to the smaller fallback:

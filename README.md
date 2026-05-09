@@ -4,6 +4,8 @@ Hackathon project for learning sparse features in a small open language model an
 
 Current hackathon direction: [GuardianRail MVP](docs/guardianrail-mvp.md).
 
+First GPU checkpoint: [AMD first checkpoint](docs/amd-first-checkpoint.md).
+
 The intended scope is intentionally narrow:
 
 1. Load one causal language model.

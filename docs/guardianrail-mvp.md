@@ -86,11 +86,11 @@ huggingface-cli login
 
 5. Run the first hook test:
 
-```text
-load model
-generate one short response
-register a hook on layer 12
-print activation shape
+```bash
+python scripts/check_gemma_hook.py \
+  --model google/gemma-3-12b-it \
+  --layer 12 \
+  --max-new-tokens 32
 ```
 
 ### Parallel Work During The First Checkpoint

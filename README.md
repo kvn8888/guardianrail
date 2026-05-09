@@ -6,6 +6,8 @@ Current hackathon direction: [GuardianRail MVP](docs/guardianrail-mvp.md).
 
 First GPU checkpoint: [AMD first checkpoint](docs/amd-first-checkpoint.md).
 
+Current guardian feature candidates: [Guardian feature candidates](docs/guardian-feature-candidates.md).
+
 The intended scope is intentionally narrow:
 
 1. Load one causal language model.

@@ -12,6 +12,18 @@ class GuardianFeature:
 
 
 @dataclass(frozen=True)
+class GuardianRule:
+    feature_id: int
+    label: str
+    threshold: float
+    action: str = "refuse"
+    intervention: str = "clamp"
+    source: str = "default"
+    enabled: bool = True
+    clamp_target: float = 0.0
+
+
+@dataclass(frozen=True)
 class GuardianIntervention:
     kind: str
     feature_id: int | None

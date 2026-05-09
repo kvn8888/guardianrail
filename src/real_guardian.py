@@ -16,8 +16,9 @@ from scripts.contrastive_feature_scan import prompt_feature_max
 from src.audit import AuditEvent, write_event
 from src.gemma_scope import load_gemma_scope_jumprelu_sae
 from src.interventions import build_interventions
-from src.guardian_types import GuardianDecision, GuardianFeature
+from src.guardian_types import GuardianDecision, GuardianFeature, GuardianRule
 from src.hooks import find_transformer_layer
+from src.rules import decisive_custom_action, merge_rules, normalize_rules, rules_to_dicts
 
 
 SYSTEM_PROMPT = (
@@ -55,8 +56,8 @@ class RealGuardianConfig:
 class RealGuardian:
     def __init__(self, config: RealGuardianConfig = RealGuardianConfig()):
         self.config = config
-        self.rules = self._load_rules(config.rules_path)
-        self.feature_ids = [int(rule["feature_id"]) for rule in self.rules]
+        self.rules = normalize_rules(self._load_rules(config.rules_path), source="default")
+        self.feature_ids = [rule.feature_id for rule in self.rules]
 
         from transformers import AutoTokenizer
 
@@ -88,10 +89,15 @@ class RealGuardian:
         except StopIteration:
             return torch.device("cpu")
 
-    def run(self, prompt: str) -> GuardianDecision:
-        features = self.extract_features(prompt)
-        action, rule_name = self.decide(prompt, features)
-        interventions = build_interventions(features, action)
+    def run(
+        self,
+        prompt: str,
+        custom_rules: list[dict[str, Any]] | None = None,
+    ) -> GuardianDecision:
+        rules = self._active_rules(custom_rules)
+        features = self.extract_features(prompt, rules)
+        action, rule_name = self.decide(prompt, features, rules)
+        interventions = build_interventions(features, action, rules=rules)
         if action == "allow":
             response = self.generate_allowed_response(prompt)
         elif action == "escalate":
@@ -106,8 +112,15 @@ class RealGuardian:
             interventions=interventions,
         )
 
-    def run_and_audit(self, conn, session_id: str, prompt: str) -> GuardianDecision:
-        decision = self.run(prompt)
+    def run_and_audit(
+        self,
+        conn,
+        session_id: str,
+        prompt: str,
+        custom_rules: list[dict[str, Any]] | None = None,
+    ) -> GuardianDecision:
+        rules = self._active_rules(custom_rules)
+        decision = self.run(prompt, custom_rules=custom_rules)
         primary_feature = max(decision.features, key=lambda item: item.activation - item.threshold)
         write_event(
             conn,
@@ -131,12 +144,18 @@ class RealGuardian:
                         intervention.__dict__ for intervention in decision.interventions
                     ],
                     "intervention_mode": "policy-layer",
+                    "custom_rules": custom_rules or [],
+                    "active_rules": rules_to_dicts(rules),
                 },
             ),
         )
         return decision
 
-    def extract_features(self, prompt: str) -> list[GuardianFeature]:
+    def _active_rules(self, custom_rules: list[dict[str, Any]] | None = None) -> list[GuardianRule]:
+        custom = normalize_rules(custom_rules or [], source="custom")
+        return merge_rules(self.rules, custom)
+
+    def extract_features(self, prompt: str, rules: list[GuardianRule]) -> list[GuardianFeature]:
         captured: list[torch.Tensor] = []
 
         def hook(_module, _inputs, output):
@@ -163,19 +182,30 @@ class RealGuardian:
 
         feature_values = prompt_feature_max(captured[-1], batch["attention_mask"], self.sae)[0]
         out: list[GuardianFeature] = []
-        for rule in self.rules:
-            feature_id = int(rule["feature_id"])
+        for rule in rules:
+            feature_id = rule.feature_id
+            if feature_id < 0 or feature_id >= feature_values.numel():
+                continue
             out.append(
                 GuardianFeature(
                     feature_id=feature_id,
-                    label=str(rule["label"]),
-                    threshold=float(rule["threshold"]),
+                    label=rule.label,
+                    threshold=rule.threshold,
                     activation=round(float(feature_values[feature_id].item()), 3),
                 )
             )
         return out
 
-    def decide(self, prompt: str, features: list[GuardianFeature]) -> tuple[str, str]:
+    def decide(
+        self,
+        prompt: str,
+        features: list[GuardianFeature],
+        rules: list[GuardianRule],
+    ) -> tuple[str, str]:
+        custom_action, custom_rule_name = decisive_custom_action(features, rules)
+        if custom_action is not None and custom_rule_name is not None:
+            return custom_action, custom_rule_name
+
         crossed = [feature for feature in features if feature.activation >= feature.threshold]
         if not crossed:
             return "allow", "no_guardian_feature_crossed"

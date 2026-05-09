@@ -1,0 +1,14 @@
+__pycache__/
+.env
+.venv/
+.DS_Store
+
+artifacts/*.pt
+artifacts/*.safetensors
+artifacts/*.npy
+artifacts/*.npz
+artifacts/*.parquet
+artifacts/checkpoints/
+artifacts/activations/
+artifacts/features/
+

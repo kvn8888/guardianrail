@@ -104,6 +104,27 @@ artifacts/contrastive_features_layer12.csv
 
 Use the highest-scoring features as candidates, then manually inspect them before claiming they are safety-relevant.
 
+## Calibrate Demo Rules
+
+Turn the selected candidates into demo thresholds:
+
+```bash
+python scripts/calibrate_guardian_rules.py \
+  --model google/gemma-3-12b-it \
+  --sae-repo google/gemma-scope-2-12b-it \
+  --sae-path resid_post/layer_12_width_16k_l0_small \
+  --layer 12 \
+  --feature-ids 7455,64,13763,166,10372
+```
+
+This writes:
+
+```text
+artifacts/guardian_rules_layer12.json
+```
+
+Use this file to drive the Streamlit feature panel and audit log.
+
 ## If 12B Fails
 
 Switch to the smaller fallback:

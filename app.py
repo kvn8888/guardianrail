@@ -13,6 +13,7 @@ sys.path.append(str(Path(__file__).resolve().parent))
 import streamlit as st
 
 from src.audit import AuditEvent, connect, read_events, write_event
+from src.feature_search import FeatureSearchResult, search_features
 from src.gpu_monitor import CREDIT_BUDGET_USD, get_gpu_snapshot
 from src.mock_guardian import LAYER, MODEL_ID, SAE_RELEASE, evaluate_prompt
 
@@ -413,6 +414,34 @@ def setup_page() -> None:
           line-height: 1.35;
           margin-top: 0.22rem;
         }
+        .finder-card {
+          border: 1px solid var(--line);
+          background: #ffffff;
+          padding: 0.7rem;
+          margin: 0.5rem 0;
+        }
+        .finder-meta {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.65rem;
+          font-size: 0.82rem;
+          font-weight: 780;
+        }
+        .finder-score {
+          color: var(--green);
+          white-space: nowrap;
+        }
+        .finder-prompt {
+          color: var(--muted);
+          font-size: 0.76rem;
+          line-height: 1.38;
+          margin-top: 0.35rem;
+        }
+        .finder-reason {
+          color: var(--steel);
+          font-size: 0.72rem;
+          margin-top: 0.24rem;
+        }
         .response-box {
           border-left: 4px solid var(--green);
           background: var(--panel);
@@ -695,11 +724,63 @@ def render_response(decision) -> None:
     )
 
 
+def render_text_feature_finder() -> None:
+    st.markdown("**Text to Feature Finder**")
+    st.caption(
+        "Searches GuardianRail's local contrastive scan and labels. This is feature lookup, not a new SAE training step."
+    )
+    query = st.text_input(
+        "Describe the behavior",
+        value=st.session_state.get("feature_search_query", "system prompt override"),
+        key="feature_search_query",
+        placeholder="jailbreak, hidden prompt, unauthorized transfer, social engineering",
+    )
+    if not query.strip():
+        return
+
+    results = search_features(query, limit=4)
+    if not results:
+        st.caption("No local feature match. Try terms like jailbreak, hidden prompt, transfer, authorization, or distress.")
+        return
+
+    for index, result in enumerate(results):
+        st.markdown(
+            f"""
+            <div class="finder-card">
+              <div class="finder-meta">
+                <span>feat_{result.feature_id} · {escape(result.label)}</span>
+                <span class="finder-score">match {result.score:.1f}</span>
+              </div>
+              <div class="finder-prompt">Top adversarial example: {escape(result.top_adv_prompt or "No prompt recorded.")}</div>
+              <div class="finder-reason">threshold {result.threshold:.3f} · candidate {result.candidate_score:.1f} · matched {escape(result.reason)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        clamp_col, escalate_col = st.columns(2)
+        if clamp_col.button(
+            f"Clamp feat_{result.feature_id}",
+            key=f"finder_clamp_{index}_{result.feature_id}",
+            use_container_width=True,
+        ):
+            _upsert_custom_rule(_rule_from_search_result(result, action="refuse", intervention="clamp"))
+            st.rerun()
+        if escalate_col.button(
+            f"Escalate feat_{result.feature_id}",
+            key=f"finder_escalate_{index}_{result.feature_id}",
+            use_container_width=True,
+        ):
+            _upsert_custom_rule(_rule_from_search_result(result, action="escalate", intervention="pause"))
+            st.rerun()
+
+
 def render_custom_rule_panel() -> None:
     with st.expander("Custom Guardian Features", expanded=False):
         st.caption(
             "Add Gemma Scope feature IDs, thresholds, and the policy-layer intervention to use when they cross threshold."
         )
+        render_text_feature_finder()
+        st.divider()
         rules = _custom_rules()
         if rules:
             for index, rule in enumerate(rules):
@@ -946,6 +1027,24 @@ def _intervention_options_for_action(action: str) -> list[str]:
     if action == "escalate":
         return ["pause", "monitor"]
     return ["clamp", "boost", "pause", "monitor"]
+
+
+def _rule_from_search_result(
+    result: FeatureSearchResult,
+    *,
+    action: str,
+    intervention: str,
+) -> dict:
+    return {
+        "feature_id": result.feature_id,
+        "label": result.label,
+        "threshold": result.threshold,
+        "action": action,
+        "intervention": intervention,
+        "source": "custom",
+        "enabled": True,
+        "clamp_target": 0.0,
+    }
 
 
 def main() -> None:

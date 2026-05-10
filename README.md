@@ -37,7 +37,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-local.txt
 
-streamlit run app.py
+streamlit run frontend/app.py
 ```
 
 Open:
@@ -100,7 +100,7 @@ python scripts/run_real_guardian_demo.py --all-demo
 Run the Streamlit app with the real backend:
 
 ```bash
-GUARDIAN_BACKEND=real streamlit run app.py \
+GUARDIAN_BACKEND=real streamlit run frontend/app.py \
   --server.address=0.0.0.0 \
   --server.port=8501 \
   --server.headless=true
@@ -176,7 +176,7 @@ Guardian controller
 ## Key Files
 
 ```text
-app.py                          Streamlit app
+frontend/app.py                 Streamlit app
 src/real_guardian.py            Real Gemma + Gemma Scope backend
 src/mock_guardian.py            Fast local mock backend
 src/interventions.py            Clamp / boost / pause intervention construction
@@ -233,7 +233,7 @@ SQLite DB files are git-ignored.
 
 If the MacBook is slow or cannot load the model:
 
-- Use local mock mode only: `streamlit run app.py`.
+- Use local mock mode only: `streamlit run frontend/app.py`.
 - Do not use `GUARDIAN_BACKEND=real` locally.
 
 If the AMD backend fails to load Gemma:

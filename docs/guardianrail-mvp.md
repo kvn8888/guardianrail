@@ -74,7 +74,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-local.txt
 
-streamlit run app.py
+streamlit run frontend/app.py
 ```
 
 Open:
@@ -111,7 +111,7 @@ google/gemma-scope-2-12b-it
 Run the real Streamlit backend:
 
 ```bash
-GUARDIAN_BACKEND=real streamlit run app.py \
+GUARDIAN_BACKEND=real streamlit run frontend/app.py \
   --server.address=0.0.0.0 \
   --server.port=8501 \
   --server.headless=true
@@ -253,7 +253,7 @@ SQLite audit log
 ## Key Files
 
 ```text
-app.py
+frontend/app.py
 src/real_guardian.py
 src/mock_guardian.py
 src/interventions.py

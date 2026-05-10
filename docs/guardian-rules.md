@@ -186,7 +186,7 @@ python scripts/run_real_guardian_demo.py --all-demo
 Run the real Streamlit backend:
 
 ```bash
-GUARDIAN_BACKEND=real streamlit run app.py \
+GUARDIAN_BACKEND=real streamlit run frontend/app.py \
   --server.address=0.0.0.0 \
   --server.port=8501 \
   --server.headless=true

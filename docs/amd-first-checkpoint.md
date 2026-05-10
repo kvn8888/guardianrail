@@ -118,7 +118,7 @@ artifacts/guardianrail.sqlite3
 Run inside the AMD container:
 
 ```bash
-GUARDIAN_BACKEND=real streamlit run app.py \
+GUARDIAN_BACKEND=real streamlit run frontend/app.py \
   --server.address=0.0.0.0 \
   --server.port=8501 \
   --server.headless=true

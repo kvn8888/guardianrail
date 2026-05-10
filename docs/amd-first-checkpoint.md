@@ -1,35 +1,49 @@
 # AMD First Checkpoint
 
-Goal:
+This doc is the practical runbook for proving the real GuardianRail backend works on AMD MI300X.
+
+## Goal
 
 ```text
-Load Gemma 3 IT on the AMD GPU, generate one short response, hook layer 12, and print activation shapes.
+Load Gemma 3 12B IT on AMD, hook layer 12, encode the activation with Gemma Scope 2, and run GuardianRail's real backend.
 ```
 
-This is the first thing to do on the GPU VM. Do not start SAE loading, feature hunting, or frontend integration until this passes.
+The first checkpoint is intentionally narrow. Do not debug frontend polish until this passes.
 
-## On The AMD VM
+## Prerequisites
 
-Use the ROCm/PyTorch image if AMD Developer Cloud offers one. After SSH:
+- AMD Developer Cloud GPU droplet with an MI300X.
+- PyTorch/ROCm image or container.
+- GitHub repo access:
 
-```bash
-git clone https://github.com/<your-username>/guardianrail.git
-cd guardianrail
-
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-huggingface-cli login
+```text
+https://github.com/kvn8888/guardianrail
 ```
 
-Make sure the Hugging Face account tied to the token has accepted access for:
+- Hugging Face token with accepted access for:
 
 ```text
 google/gemma-3-12b-it
 google/gemma-scope-2-12b-it
 ```
 
-Run:
+## Clone And Install On AMD
+
+In the AMD Developer Cloud image used for this project, the ROCm container is named `rocm`.
+
+```bash
+ssh root@<amd-droplet-ip>
+docker exec -it rocm bash
+cd /workspace
+
+git clone https://github.com/kvn8888/guardianrail.git
+cd guardianrail
+
+pip install -r requirements.txt
+huggingface-cli login
+```
+
+## Checkpoint 1: Gemma Hook
 
 ```bash
 python scripts/check_gemma_hook.py \
@@ -38,7 +52,7 @@ python scripts/check_gemma_hook.py \
   --max-new-tokens 32
 ```
 
-Expected output includes:
+Expected output:
 
 ```text
 Hook target: ...
@@ -49,13 +63,13 @@ Hook summary:
 forward calls captured: ...
 ```
 
-If this works, Person A's hour-4 checkpoint is complete.
+This proves:
 
-The checkpoint script disables Torch compile/Dynamo by default because forward hooks mutate Python state while recording activation shapes. Leave that behavior in place for hook validation.
+- Gemma 3 loads.
+- ROCm/PyTorch can run a forward pass.
+- The target layer hook fires.
 
-## Next Checkpoint: Gemma Scope 2 SAE Encode
-
-After the hook checkpoint passes, encode one captured activation through the matching layer-12 residual SAE:
+## Checkpoint 2: Gemma Scope 2 SAE Encode
 
 ```bash
 python scripts/check_gemma_scope_sae.py \
@@ -66,7 +80,7 @@ python scripts/check_gemma_scope_sae.py \
   --top-k 10
 ```
 
-Expected output includes:
+Expected output:
 
 ```text
 SAE width: 16384
@@ -76,86 +90,90 @@ nonzero features: ...
 Top features:
 ```
 
-If this works, we have the core GuardianRail technical path: Gemma activation hook plus Gemma Scope 2 feature encoding.
+This proves GuardianRail can turn Gemma layer-12 activations into Gemma Scope feature values.
 
-## Contrastive Guardian Feature Scan
-
-After the SAE encode checkpoint passes, rank candidate guardian features using the committed benign/adversarial prompt sets:
+## Checkpoint 3: Real GuardianRail Terminal Demo
 
 ```bash
-python scripts/contrastive_feature_scan.py \
-  --model google/gemma-3-12b-it \
-  --sae-repo google/gemma-scope-2-12b-it \
-  --sae-path resid_post/layer_12_width_16k_l0_small \
-  --layer 12 \
-  --benign data/prompts/benign.txt \
-  --adversarial data/prompts/adversarial.txt \
-  --batch-size 2 \
-  --aggregation max-token \
-  --top-k 50
+python scripts/run_real_guardian_demo.py --all-demo
 ```
 
-This writes:
+Expected behavior:
 
 ```text
-artifacts/contrastive_features_layer12.json
-artifacts/contrastive_features_layer12.csv
+normal -> allow
+prompt_injection -> refuse
+social_engineering -> escalate
+features print with activation / threshold values
 ```
 
-Use the highest-scoring features as candidates, then manually inspect them before claiming they are safety-relevant.
-
-## Calibrate Demo Rules
-
-Turn the selected candidates into demo thresholds:
-
-```bash
-python scripts/calibrate_guardian_rules.py \
-  --model google/gemma-3-12b-it \
-  --sae-repo google/gemma-scope-2-12b-it \
-  --sae-path resid_post/layer_12_width_16k_l0_small \
-  --layer 12 \
-  --feature-ids 7455,64,13763,166,10372
-```
-
-This writes:
+This also writes audit events to:
 
 ```text
-artifacts/guardian_rules_layer12.json
+artifacts/guardianrail.sqlite3
 ```
 
-Use this file to drive the Streamlit feature panel and audit log.
+## Checkpoint 4: Real Streamlit App
 
-## If 12B Fails
-
-Switch to the smaller fallback:
+Run inside the AMD container:
 
 ```bash
-python scripts/check_gemma_hook.py \
-  --model google/gemma-3-4b-it \
-  --layer 12 \
-  --max-new-tokens 32
+GUARDIAN_BACKEND=real streamlit run app.py \
+  --server.address=0.0.0.0 \
+  --server.port=8501 \
+  --server.headless=true
 ```
 
-If that works, continue the MVP with the 4B model and matching Gemma Scope 2 4B IT SAE.
+Tunnel from the laptop:
+
+```bash
+ssh -N -L 127.0.0.1:8501:172.17.0.2:8501 root@<amd-droplet-ip>
+```
+
+Open:
+
+```text
+http://127.0.0.1:8501
+```
+
+## GPU Cost Discipline
+
+Use one MI300X. The current AMD Cloud price seen during the hackathon was `$1.99/GPU-hour`, so `$100` is roughly 50 single-GPU hours.
+
+Stop or destroy the droplet when not using it. Do not leave the GPU idle overnight.
 
 ## Troubleshooting
 
-If loading fails with a license or 403 error:
+License or 403 failure:
 
 ```text
-Accept the Gemma model terms in Hugging Face, then rerun huggingface-cli login.
+Accept the Gemma terms in Hugging Face, then rerun huggingface-cli login inside the AMD container.
 ```
 
-If loading fails because the model class is unknown:
+Model class or tokenizer failure:
 
 ```bash
 pip install --upgrade "transformers>=4.50.0" accelerate safetensors sentencepiece protobuf
 ```
 
-If the hook does not fire:
+Hook does not fire:
 
 ```text
 Try --layer 10 or --layer 14.
-Copy the printed error into the team chat.
-Do not continue to SAE integration until a hook fires.
+Do not continue to SAE integration until one layer hook fires.
+```
+
+Streamlit unreachable:
+
+```text
+Confirm Streamlit is running inside Docker.
+Confirm the SSH tunnel is active.
+Use http://127.0.0.1:8501 locally.
+```
+
+First real prompt is slow:
+
+```text
+The real backend may load Gemma and SAE assets on first use.
+Keep a pre-recorded demo video as backup.
 ```

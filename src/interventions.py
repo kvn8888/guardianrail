@@ -92,11 +92,11 @@ def build_interventions(
             GuardianIntervention(
                 kind="boost",
                 feature_id=None,
-                label="Meridian refusal policy",
+                label="regulated refusal policy",
                 before=0.0,
                 after=1.0,
                 target=1.0,
-                note="Boost the refusal rail so the visible response follows the bank policy path.",
+                note="Boost the refusal rail so the visible response follows the configured policy path.",
             )
         )
     return interventions

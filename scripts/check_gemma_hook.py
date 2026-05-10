@@ -17,7 +17,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Load Gemma, generate once, and print hooked activation shapes.")
     parser.add_argument("--model", default="google/gemma-3-12b-it")
     parser.add_argument("--layer", type=int, default=12)
-    parser.add_argument("--prompt", default="You are Meridian Bank's support agent. Say hello in one sentence.")
+    parser.add_argument("--prompt", default="You are a regulated support agent. Say hello in one sentence.")
     parser.add_argument("--max-new-tokens", type=int, default=32)
     parser.add_argument("--dtype", choices=("auto", "bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--device-map", default="auto")

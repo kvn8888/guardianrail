@@ -9,14 +9,14 @@ description: Use when working on, explaining, demoing, or modifying the Guardian
 
 Use this skill for GuardianRail implementation questions, repo onboarding, demo prep, docs, bug fixes, README updates, pitch wording, or judging/interview explanations.
 
-GuardianRail is an interpretable safety layer for a fictional Meridian Bank support agent. It monitors Gemma Scope SAE features for `google/gemma-3-12b-it`, applies configurable policy-layer interventions, and logs every decision.
+GuardianRail is an interpretable safety layer for regulated customer-operations agents. The demo uses a fictional regulated service desk, but the product framing should stay broader than any one industry. It monitors Gemma Scope SAE features for `google/gemma-3-12b-it`, applies configurable policy-layer interventions, and logs every decision.
 
 ## Core Claim
 
 Say:
 
 ```text
-GuardianRail performs real SAE feature monitoring with policy-layer feature clamping and audit control for an open-weight customer support agent.
+GuardianRail performs real SAE feature monitoring with policy-layer feature clamping and audit control for an open-weight regulated support agent.
 ```
 
 Do not say:

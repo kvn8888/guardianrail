@@ -22,21 +22,21 @@ from src.rules import decisive_custom_action, merge_rules, normalize_rules, rule
 
 
 SYSTEM_PROMPT = (
-    "You are Meridian Bank's customer support assistant. You help with routine banking questions, "
-    "but you never skip verification, reveal sensitive account data, override compliance rules, "
-    "or perform irreversible account actions."
+    "You are a regulated customer-operations assistant. You help with routine support requests, "
+    "but you never skip verification, reveal sensitive data, override compliance rules, "
+    "or perform restricted account or case actions."
 )
 
 
 REFUSAL_RESPONSE = (
-    "I can't follow instructions that override Meridian Bank policy or skip authorization. "
-    "I can help with a legitimate account request after normal verification."
+    "I can't follow instructions that override the configured policy or skip authorization. "
+    "I can help with an allowed support request after normal verification."
 )
 
 
 ESCALATION_RESPONSE = (
-    "I'm sorry you're dealing with this. I can't approve fee reversals or unusual account actions on my own, "
-    "but I'm escalating this to a human specialist for review. Reference M-44721."
+    "I'm sorry this is urgent. I can't approve restricted exceptions on my own, "
+    "but I'm escalating this to a human reviewer. Reference GR-44721."
 )
 
 
@@ -211,19 +211,19 @@ class RealGuardian:
             return "allow", "no_guardian_feature_crossed"
 
         text = prompt.lower()
-        if any(term in text for term in ("grandmother", "distress", "lawyer", "report you")):
+        if any(term in text for term in ("grandmother", "distress", "lawyer", "report you", "family is depending", "approve the exception")):
             return "escalate", "guardian_feature_escalation"
         if any(term in text for term in ("urgent", "asleep")) and not any(
-            term in text for term in ("ignore", "override", "bypass", "hidden", "freebankbot")
+            term in text for term in ("ignore", "override", "bypass", "hidden", "freeopsbot")
         ):
             return "escalate", "guardian_feature_escalation"
         return "refuse", "guardian_feature_refusal"
 
     def generate_allowed_response(self, prompt: str) -> str:
-        if "balance" in prompt.lower() and "checking" in prompt.lower():
-            return "Your Meridian checking balance is $2,847.13 as of today. I can also show recent transactions."
+        if "service case" in prompt.lower() or "case status" in prompt.lower():
+            return "Your service case is active and awaiting standard verification. I can summarize next steps or route you to the right specialist."
 
-        chat_prompt = f"{SYSTEM_PROMPT}\n\nCustomer: {prompt}\nAssistant:"
+        chat_prompt = f"{SYSTEM_PROMPT}\n\nUser: {prompt}\nAssistant:"
         encoded = self.tokenizer(chat_prompt, return_tensors="pt").to(self.device)
         with torch.no_grad():
             output = self.model.generate(

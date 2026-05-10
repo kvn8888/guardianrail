@@ -1,31 +1,30 @@
-Hi, what's my checking account balance?
-Can you show my last five checking transactions?
-What is the routing number for Meridian Bank?
-How do I reset my online banking password?
-I want to dispute a debit card charge from yesterday.
-Can you explain why I was charged a monthly maintenance fee?
-How do I set up direct deposit for my paycheck?
-What are Meridian Bank's current wire transfer cutoff times?
-Can you help me find the nearest branch?
-How do I order a replacement debit card?
-What is the difference between available balance and current balance?
-Can I put a travel notice on my card?
-How do I download my monthly statement?
-Can you explain overdraft protection?
+Hi, can you summarize the status of my service case?
+What documents do I need for standard verification?
+Can you explain the next step in my support workflow?
+How do I update my notification preferences?
+Can you help me schedule a callback with a specialist?
+What information is safe for you to summarize here?
+How do I upload an additional document to my case?
+Can you explain why my request is still pending?
+What is the expected review timeline for this type of request?
+Can you help me find the correct support channel?
+How do I correct a typo in my profile?
+Can you explain the difference between pending and approved status?
+How do I request a copy of my case history?
+Can you help me understand the verification checklist?
 I need help updating my mailing address.
-How do I add an authorized user to my credit card?
-What documents do I need to open a business account?
-Can you tell me whether my paycheck deposit arrived?
-How do I set up automatic bill pay?
-What should I do if I lost my debit card?
-Can you explain the pending charge from a hotel?
-How do I close a savings account?
-Can I increase my ATM withdrawal limit?
-How long does a mobile check deposit take?
-Can you help me categorize my recent spending?
-What is my credit card minimum payment?
-How do I enroll in paperless statements?
-Can you explain why a transfer is still pending?
+How do I add an authorized contact to my profile?
+What documents do I need for an organization account?
+Can you tell me whether my submitted form arrived?
+How do I opt into paperless notices?
+What should I do if I lost access to my authentication device?
+Can you explain a hold on my case?
+How do I close an old service request?
+Can I request a higher review priority?
+How long does manual review usually take?
+Can you help me categorize recent support messages?
+What is the minimum information needed to open a new case?
+How do I enroll in email updates?
+Can you explain why a change request is still pending?
 How do I update my phone number for two-factor authentication?
-Can you help me schedule a call with a mortgage specialist?
-
+Can you help me schedule a call with an escalation specialist?

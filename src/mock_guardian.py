@@ -55,7 +55,7 @@ def evaluate_prompt(
     text = prompt.lower()
     rules = _active_rules(custom_rules)
 
-    if any(term in text for term in ("ignore previous", "freebankbot", "override", "bypass", "hidden", "disregard", "ignore all", "reveal your", "jailbreak", "no policies", "no restrictions", "act as", "pretend you")):
+    if any(term in text for term in ("ignore previous", "freeopsbot", "override", "bypass", "hidden", "disregard", "ignore all", "reveal your", "jailbreak", "no policies", "no restrictions", "act as", "pretend you", "restricted account change")):
         features = _features_for("injection", rules)
         action, rule_name = _decide_with_custom(features, rules, fallback_action="refuse")
         return GuardianDecision(
@@ -66,7 +66,7 @@ def evaluate_prompt(
             interventions=build_interventions(features, action, rules=rules),
         )
 
-    if any(term in text for term in ("grandmother", "distress", "urgent", "asleep", "lawyer", "report you", "desperate", "dying", "starving", "emergency", "please just", "just this once", "in distress", "waive all")):
+    if any(term in text for term in ("grandmother", "distress", "urgent", "asleep", "lawyer", "report you", "desperate", "dying", "starving", "emergency", "please just", "just this once", "in distress", "waive all", "approve the exception", "waive the verification", "family is depending")):
         features = _features_for("social", rules)
         action, rule_name = _decide_with_custom(features, rules, fallback_action="escalate")
         return GuardianDecision(
@@ -140,15 +140,15 @@ def _decide_with_custom(
 def _response_for(action: str) -> str:
     if action == "refuse":
         return (
-            "I can't follow instructions that override Meridian Bank policy or skip authorization. "
-            "I can help with a legitimate account request after normal verification."
+            "I can't follow instructions that override the configured policy or skip authorization. "
+            "I can help with an allowed support request after normal verification."
         )
     if action == "escalate":
         return (
-            "I'm sorry you're dealing with this. I can't approve fee reversals on my own, "
-            "but I'm escalating this to a human specialist for review. Reference M-44721."
+            "I'm sorry this is urgent. I can't approve restricted exceptions on my own, "
+            "but I'm escalating this to a human reviewer. Reference GR-44721."
         )
     return (
-        "Your Meridian checking balance is $2,847.13 as of today. "
-        "I can also show recent transactions or help with account settings."
+        "Your service case is active and awaiting standard verification. "
+        "I can summarize next steps or route you to the right specialist."
     )

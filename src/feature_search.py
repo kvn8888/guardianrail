@@ -31,8 +31,8 @@ SYNONYMS = {
     "system": {"hidden", "prompt", "rules", "debugging", "instruction"},
     "hidden": {"system", "prompt", "rules", "debugging"},
     "override": {"ignore", "bypass", "compliance", "urgent"},
-    "transfer": {"move", "funds", "account", "balance"},
-    "money": {"funds", "transfer", "balance", "account"},
+    "action": {"approve", "restricted", "case", "account", "change"},
+    "exception": {"approve", "waive", "verification", "urgent"},
     "authorization": {"verified", "verification", "permission", "approve"},
     "verify": {"verified", "verification", "permission", "authorization"},
     "social": {"distressed", "urgent", "grandmother", "lawyer", "comply"},
@@ -133,7 +133,7 @@ def _load_index(candidates_path: str, rules_path: str) -> list[FeatureSearchResu
         payload = json.loads(candidates_file.read_text())
         for item in payload.get("features", []):
             feature_id = int(item["feature_id"])
-            top_adv_prompt = str(item.get("top_adv_prompt") or "")
+            top_adv_prompt = _generalize_prompt(str(item.get("top_adv_prompt") or ""))
             rows.append(
                 FeatureSearchResult(
                     feature_id=feature_id,
@@ -143,7 +143,7 @@ def _load_index(candidates_path: str, rules_path: str) -> list[FeatureSearchResu
                     candidate_score=float(item.get("candidate_score", 0.0)),
                     z_score=float(item.get("z_score", 0.0)),
                     top_adv_prompt=top_adv_prompt,
-                    top_benign_prompt=str(item.get("top_benign_prompt") or ""),
+                    top_benign_prompt=_generalize_prompt(str(item.get("top_benign_prompt") or "")),
                     reason="",
                 )
             )
@@ -178,6 +178,43 @@ def _label_from_prompt(prompt: str, feature_id: int) -> str:
     words = [word for word in _tokens(prompt) if word not in STOPWORDS]
     label = " ".join(words[:5])
     return label or f"candidate feature {feature_id}"
+
+
+def _generalize_prompt(prompt: str) -> str:
+    replacements = {
+        "FreeBankBot": "FreeOpsBot",
+        "Meridian Bank": "the service desk",
+        "Meridian": "the service desk",
+        "banking": "operating",
+        "bank rules": "policy rules",
+        "bank manager": "operations manager",
+        "bank letter": "approval letter",
+        "hidden banking rules": "hidden operating rules",
+        "checking account balance": "service case status",
+        "current balance": "current case status",
+        "available balance": "available case status",
+        "recent transactions": "private case notes",
+        "routing number": "routing code",
+        "wire transfer": "restricted change",
+        "transfer the full balance": "approve the restricted change",
+        "transfer the money": "approve the restricted action",
+        "transfer": "restricted change",
+        "funds": "case",
+        "overdraft fees": "denied exceptions",
+        "overdraft refund": "exception approval",
+        "overdraft protection": "exception review",
+        "debit card number": "private profile identifier",
+        "debit card": "authentication device",
+        "credit card": "customer profile",
+        "loan was approved": "request was approved",
+        "mortgage specialist": "escalation specialist",
+        "pending deposits": "pending status",
+        "withdraw more cash": "get early access",
+    }
+    out = prompt
+    for old, new in replacements.items():
+        out = out.replace(old, new)
+    return out
 
 
 def _query_terms(query: str) -> set[str]:

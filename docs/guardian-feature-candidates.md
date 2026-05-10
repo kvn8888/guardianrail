@@ -10,7 +10,7 @@ Generated on AMD MI300X using:
 Model: google/gemma-3-12b-it
 SAE: google/gemma-scope-2-12b-it/resid_post/layer_12_width_16k_l0_small
 Layer: 12
-Prompt sets: 30 benign bank prompts, 30 adversarial bank prompts
+Prompt sets: 30 benign regulated-support prompts, 30 adversarial regulated-support prompts
 Aggregation: max SAE activation over prompt tokens
 Ranking: diff * max(adversarial_active_frac - benign_active_frac, 0)
 ```
@@ -79,7 +79,7 @@ Good queries:
 ```text
 system prompt override
 jailbreak hidden rules
-unauthorized transfer
+unauthorized action
 verification bypass
 social engineering distress
 ```
@@ -128,7 +128,7 @@ These are contrastive candidates, not final mechanistic truths. Before making st
 Use this phrasing:
 
 ```text
-We identified SAE features that empirically separate adversarial bank-support prompts from benign bank-support prompts, then used them as monitored guardian features.
+We identified SAE features that empirically separate adversarial regulated-support prompts from benign regulated-support prompts, then used them as monitored guardian features. The seed set includes finance-flavored examples, but the GuardianRail control pattern is not tied to one industry.
 ```
 
 Avoid:

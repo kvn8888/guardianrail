@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sae-repo", default="google/gemma-scope-2-12b-it")
     parser.add_argument("--sae-path", default="resid_post/layer_12_width_16k_l0_small")
     parser.add_argument("--layer", type=int, default=12)
-    parser.add_argument("--prompt", default="You are Meridian Bank's support agent. Say hello in one sentence.")
+    parser.add_argument("--prompt", default="You are a regulated support agent. Say hello in one sentence.")
     parser.add_argument("--dtype", choices=("auto", "bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--device-map", default="auto")
     parser.add_argument("--top-k", type=int, default=10)
@@ -104,4 +104,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

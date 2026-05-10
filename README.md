@@ -1,6 +1,6 @@
 # GuardianRail
 
-GuardianRail is an interpretable safety layer for open-weight customer support agents in regulated domains. The demo agent is a fictional Meridian Bank support assistant. GuardianRail monitors selected Gemma Scope SAE features, applies configurable policy-layer interventions when safety features cross threshold, and writes an auditable SQLite trail for every decision.
+GuardianRail is an interpretable safety layer for open-weight agents in regulated customer operations. The demo uses a fictional regulated service desk, but the pattern applies to finance, healthcare, insurance, public-sector, and internal operations workflows. GuardianRail monitors selected Gemma Scope SAE features, applies configurable policy-layer interventions when safety features cross threshold, and writes an auditable SQLite trail for every decision.
 
 The hackathon pitch:
 
@@ -10,7 +10,7 @@ The hackathon pitch:
 
 What works:
 
-- Streamlit demo app for the bank support agent.
+- Streamlit demo app for a regulated support agent.
 - Mock backend for MacBook/local development.
 - Real backend for AMD MI300X using `google/gemma-3-12b-it` and `google/gemma-scope-2-12b-it`.
 - Live feature activation panel with calibrated layer-12 Guardian features.
@@ -199,7 +199,7 @@ Good queries:
 ```text
 system prompt override
 jailbreak hidden rules
-unauthorized transfer
+unauthorized action
 verification bypass
 social engineering distress
 ```

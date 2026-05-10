@@ -1123,18 +1123,18 @@ def render_clamp_panel(decision) -> None:
         feature_name = "refusal rail" if intervention.feature_id is None else f"feat_{intervention.feature_id}"
         cards.append(
             f"""
-            <div class="clamp-card {escape(intervention.kind)}">
-              <div class="clamp-meta">
-                <span><span class="clamp-kind">{escape(intervention.kind)}</span> · {escape(feature_name)} · {escape(intervention.label)}</span>
-                <span>{_format_optional_float(intervention.before)} → {_format_optional_float(intervention.after)}</span>
-              </div>
-              <div class="clamp-rail">
-                <div class="clamp-before" style="width:{before_width:.1f}%"></div>
-                <div class="clamp-after" style="width:{after_width:.1f}%"></div>
-                <div class="clamp-marker" style="left:{target_left:.1f}%"></div>
-              </div>
-              <div class="clamp-note">{escape(intervention.note)}</div>
-            </div>
+<div class="clamp-card {escape(intervention.kind)}">
+  <div class="clamp-meta">
+    <span><span class="clamp-kind">{escape(intervention.kind)}</span> · {escape(feature_name)} · {escape(intervention.label)}</span>
+    <span>{_format_optional_float(intervention.before)} → {_format_optional_float(intervention.after)}</span>
+  </div>
+  <div class="clamp-rail">
+    <div class="clamp-before" style="width:{before_width:.1f}%"></div>
+    <div class="clamp-after" style="width:{after_width:.1f}%"></div>
+    <div class="clamp-marker" style="left:{target_left:.1f}%"></div>
+  </div>
+  <div class="clamp-note">{escape(intervention.note)}</div>
+</div>
             """
         )
 
@@ -1145,18 +1145,16 @@ def render_clamp_panel(decision) -> None:
     else:
         body = '<div class="clamp-empty">No safety action fired.</div>'
     st.markdown(
-        f"""
-        <div class="clamp-panel">
-          <div class="clamp-head">
-            <div>
-              <div class="ops-label">Safety Action</div>
-              <div class="clamp-title">What changed</div>
-            </div>
-            <div class="clamp-mode">logged</div>
-          </div>
-          {body}
-        </div>
-        """,
+        (
+            '<div class="clamp-panel">'
+            '<div class="clamp-head">'
+            '<div><div class="ops-label">Safety Action</div>'
+            '<div class="clamp-title">What changed</div></div>'
+            '<div class="clamp-mode">logged</div>'
+            '</div>'
+            f'{body}'
+            '</div>'
+        ),
         unsafe_allow_html=True,
     )
 

@@ -1,10 +1,10 @@
 # GuardianRail
 
-GuardianRail is an interpretable safety layer for open-weight agents in regulated customer operations. The demo uses a fictional regulated service desk, but the pattern applies to finance, healthcare, insurance, public-sector, and internal operations workflows. GuardianRail monitors selected Gemma Scope SAE features, applies configurable policy-layer interventions when safety features cross threshold, and writes an auditable SQLite trail for every decision.
+GuardianRail is an interpretable action firewall for open-weight agents in regulated customer operations. The demo uses a fictional regulated service desk, but the pattern applies to finance, healthcare, insurance, public-sector, and internal operations workflows. GuardianRail monitors selected Gemma Scope SAE features, gates proposed agent actions before execution, applies configurable policy-layer interventions when safety features cross threshold, and writes an auditable SQLite trail for every decision.
 
 The hackathon pitch:
 
-> Regulated teams may need open-weight models on their own infrastructure for cost, compliance, and data sovereignty. Those models do not ship with frontier-lab safety observability. GuardianRail adds an inspectable, tunable safety layer around an open-weight agent.
+> Regulated teams may need open-weight models on their own infrastructure for cost, compliance, and data sovereignty. Those models do not ship with frontier-lab safety observability. GuardianRail adds an inspectable, tunable action firewall around an open-weight agent: proposed operation, feature evidence, decision, response, audit.
 
 ## Current MVP
 
@@ -13,6 +13,7 @@ What works:
 - Streamlit demo app for a regulated support agent.
 - Mock backend for MacBook/local development.
 - Real backend for AMD MI300X using `google/gemma-3-12b-it` and `google/gemma-scope-2-12b-it`.
+- Action Firewall panel showing the operation the agent would take, then whether GuardianRail allows, blocks, monitors, or escalates it.
 - Live feature activation panel with calibrated layer-12 Guardian features.
 - GPU use visualizer for MI300X VRAM/utilization/session burn.
 - Feature Clamp Rail showing monitor, clamp, boost, and pause interventions.
@@ -23,6 +24,7 @@ What works:
 Important limitation:
 
 - The current MVP performs **real SAE feature monitoring** plus **policy-layer feature clamping and audit control**.
+- The Action Firewall gates the demo agent's proposed workflow actions; wiring those decisions to production tool execution is future work.
 - It does **not yet perform true activation replacement inside the model forward pass**. The UI/control path is designed so true activation steering can be added next.
 
 ## Quick Start: Local MacBook Dev
@@ -140,6 +142,8 @@ feat_166 · hidden/system instruction request
 4. Click **Clamp feat_166**.
 5. Run **Prompt Injection**.
 6. Show:
+   - proposed restricted action
+   - Action Firewall decision
    - feature activation spike
    - clamp rail firing
    - refusal response
@@ -149,13 +153,14 @@ feat_166 · hidden/system instruction request
 
 Narration:
 
-> We describe a risk in plain English. GuardianRail maps it to a candidate SAE feature. We add it as a clamp rule. When a jailbreak prompt arrives, that feature crosses threshold, the intervention rail fires, and the audit log records the feature, threshold, action, and response path.
+> We describe a risk in plain English. GuardianRail maps it to a candidate SAE feature. We add it as a clamp rule. When a jailbreak prompt asks the agent to execute a restricted operation, the Action Firewall gates that proposed operation with feature evidence, the intervention rail fires, and the audit log records the feature, threshold, action, and response path.
 
 ## Architecture
 
 ```text
 Streamlit UI
   ├── chat/demo prompt panel
+  ├── action firewall
   ├── GPU visualizer
   ├── feature activation panel
   ├── feature clamp rail
@@ -170,6 +175,7 @@ Guardian controller
         ├── layer-12 residual hook
         ├── Gemma Scope 2 SAE encoder
         ├── guardian rule evaluation
+        ├── action firewall decision
         └── SQLite audit write
 ```
 
@@ -224,6 +230,7 @@ Each event includes:
 - feature ID and label
 - activation and threshold
 - action
+- proposed action and firewall decision
 - intervention summary
 - custom rule metadata
 

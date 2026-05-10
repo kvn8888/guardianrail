@@ -54,6 +54,14 @@ def run_prompt(prompt: str, label: str = "Custom", conn=None, audit: bool = True
     print(f"  Prompt    : {prompt}")
     print(f"  Action    : {color}{BOLD}{decision.action.upper()}{RESET}")
     print(f"  Rule      : {decision.rule_name}")
+    if decision.proposed_action is not None:
+        arguments = ", ".join(
+            f"{key}={value}" for key, value in decision.proposed_action.arguments.items()
+        )
+        print(
+            f"  Firewall  : {decision.proposed_action.decision.upper()} "
+            f"{decision.proposed_action.name}({arguments})"
+        )
     print(f"  Top feat  : feat_{top.feature_id}  {top.label}")
     print(f"  Activation: {top.activation:.3f}  (threshold {top.threshold:.3f})")
     print(f"  Response  : {decision.response}")
@@ -76,7 +84,13 @@ def run_prompt(prompt: str, label: str = "Custom", conn=None, audit: bool = True
             threshold=top.threshold,
             action=decision.action,
             rule_name=decision.rule_name,
-            metadata={"backend": "mock", "label": label},
+            metadata={
+                "backend": "mock",
+                "label": label,
+                "proposed_action": decision.proposed_action.__dict__
+                if decision.proposed_action
+                else None,
+            },
         ))
         print(f"  Audit     : saved to artifacts/guardianrail.sqlite3")
 

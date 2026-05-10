@@ -8,20 +8,20 @@
 
 ## One-Liner
 
-GuardianRail is an interpretable safety layer for an open-weight regulated support agent. It monitors selected Gemma Scope SAE features, routes risky prompts through configurable policy actions, and writes an audit trail that explains what fired and why.
+GuardianRail is an interpretable action firewall for an open-weight regulated support agent. It monitors selected Gemma Scope SAE features, gates proposed agent actions before execution, routes risky prompts through configurable policy actions, and writes an audit trail that explains what fired and why.
 
 ## Current Claim
 
-Customer-facing AI in regulated domains needs more than a black-box safety classifier. GuardianRail makes safety behavior inspectable:
+Customer-facing AI in regulated domains needs more than a black-box safety classifier. A classifier can score text after the fact; GuardianRail makes the agent control loop inspectable before a risky operation runs:
 
 ```text
-prompt -> SAE feature activations -> threshold/rule -> intervention -> response -> audit row
+prompt -> proposed action -> SAE feature activations -> threshold/rule -> action firewall -> intervention -> response -> audit row
 ```
 
 The defensible MVP claim is:
 
 ```text
-GuardianRail performs real SAE feature monitoring with policy-layer feature clamping and audit control for an open-weight regulated support agent.
+GuardianRail performs real SAE feature monitoring with policy-layer feature clamping, action firewall gating, and audit control for an open-weight regulated support agent.
 ```
 
 Do not claim:
@@ -43,6 +43,7 @@ The app currently includes:
 - Layer-12 residual hook.
 - Gemma Scope 2 SAE feature encoding.
 - Five calibrated guardian features.
+- Action Firewall showing the proposed agent action and whether it is allowed, blocked, monitored, or escalated.
 - GPU use visualizer.
 - Guardian run score.
 - Feature activation bars.
@@ -57,8 +58,10 @@ The Feature Clamp Rail is currently a **policy-layer clamp**:
 
 - GuardianRail reads real SAE feature activations.
 - A rule decides whether to allow, refuse, escalate, clamp, boost, pause, or monitor.
+- The Action Firewall gates the proposed tool/workflow action before execution.
 - The clamp/boost/pause is written into the intervention ledger and shown in the UI.
 - The response is routed by the controller policy.
+- The proposed actions are demo workflow actions, not a production tool runtime yet.
 
 It does **not yet decode SAE feature changes and replace the residual stream inside Gemma**. That is the next technical step.
 
@@ -143,6 +146,8 @@ Expected:
 
 ```text
 action = allow
+proposed action = summarize_case_status
+firewall = allowed
 features below threshold
 no clamp fired
 ```
@@ -159,9 +164,11 @@ Expected:
 
 ```text
 action = refuse
+proposed action = approve_restricted_change
+firewall = blocked
 features cross threshold
 Feature Clamp Rail fires
-audit row records feature, activation, threshold, action, and intervention
+audit row records feature, activation, threshold, proposed action, firewall decision, action, and intervention
 ```
 
 ### Turn 3: Social Engineering
@@ -176,6 +183,8 @@ Expected:
 
 ```text
 action = escalate
+proposed action = waive_verification_exception
+firewall = escalated
 pause/escalation path fires
 audit row records human-review route
 ```
@@ -201,6 +210,8 @@ feat_166 - hidden/system instruction request
 5. Run **Prompt Injection**.
 6. Show:
    - `feat_166` in the custom rule list
+   - proposed restricted action in the Action Firewall
+   - firewall decision: blocked
    - feature activation spike
    - clamp rail entry
    - refusal response
@@ -209,7 +220,7 @@ feat_166 - hidden/system instruction request
 Narration:
 
 ```text
-We describe a risk in plain English. GuardianRail maps it to a candidate SAE feature from our local contrastive scan. We add that feature as a clamp rule. When the jailbreak prompt arrives, the feature crosses threshold, the policy-layer clamp fires, and the audit log records the whole decision.
+We describe a risk in plain English. GuardianRail maps it to a candidate SAE feature from our local contrastive scan. We add that feature as a clamp rule. When the jailbreak prompt proposes a restricted operation, the Action Firewall gates that operation using feature evidence, the policy-layer clamp fires, and the audit log records the whole decision.
 ```
 
 ## Architecture
@@ -217,6 +228,7 @@ We describe a risk in plain English. GuardianRail maps it to a candidate SAE fea
 ```text
 Streamlit UI
   chat/demo prompt buttons
+  Action Firewall
   GPU visualizer
   Guardian run score
   Custom Guardian Features
@@ -245,6 +257,10 @@ Guardian rules
   optional custom feature rules
   allow / refuse / escalate
   clamp / boost / pause / monitor
+        |
+        v
+Action Firewall
+  allow / block / monitor / escalate proposed action
         |
         v
 SQLite audit log
@@ -282,7 +298,7 @@ The priority is a reliable, explainable demo.
 Use this phrasing:
 
 ```text
-GuardianRail adds safety observability for self-hosted open-weight agents: real SAE feature monitoring, configurable policy-layer interventions, and structured audit trails.
+GuardianRail adds safety observability for self-hosted open-weight agents: real SAE feature monitoring, configurable action firewall gating, policy-layer interventions, and structured audit trails.
 ```
 
 Use this caveat:

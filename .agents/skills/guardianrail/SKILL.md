@@ -9,14 +9,20 @@ description: Use when working on, explaining, demoing, or modifying the Guardian
 
 Use this skill for GuardianRail implementation questions, repo onboarding, demo prep, docs, bug fixes, README updates, pitch wording, or judging/interview explanations.
 
-GuardianRail is an interpretable safety layer for regulated customer-operations agents. The demo uses a fictional regulated service desk, but the product framing should stay broader than any one industry. It monitors Gemma Scope SAE features for `google/gemma-3-12b-it`, applies configurable policy-layer interventions, and logs every decision.
+GuardianRail is an interpretable action firewall for regulated customer-operations agents. The demo uses a fictional regulated service desk, but the product framing should stay broader than any one industry. It monitors Gemma Scope SAE features for `google/gemma-3-12b-it`, gates proposed agent actions before execution, applies configurable policy-layer interventions, and logs every decision.
 
 ## Core Claim
 
 Say:
 
 ```text
-GuardianRail performs real SAE feature monitoring with policy-layer feature clamping and audit control for an open-weight regulated support agent.
+GuardianRail performs real SAE feature monitoring with action-firewall gating, policy-layer feature clamping, and audit control for an open-weight regulated support agent.
+```
+
+Stronger novelty framing:
+
+```text
+GuardianRail is not just a text classifier after the model speaks. It gates the agent's proposed operation before execution using internal Gemma Scope feature evidence.
 ```
 
 Do not say:
@@ -32,6 +38,7 @@ Important limitation:
 
 ```text
 The current clamp rail is policy-layer clamping. GuardianRail reads real SAE features and records clamp/boost/pause interventions, but it does not yet decode edited SAE features back into Gemma's residual stream.
+The Action Firewall gates proposed demo workflow actions, not production tool execution yet.
 ```
 
 ## Architecture
@@ -42,6 +49,7 @@ frontend/app.py
   custom rule editor
   text-to-feature finder
   demo prompt buttons
+  action firewall
   GPU visualizer
   feature bars
   clamp rail
@@ -152,9 +160,10 @@ For `GUARDIAN_BACKEND=real`:
 5. `RealGuardian.extract_features` tokenizes the prompt and hooks layer 12.
 6. `prompt_feature_max` encodes hooked activations with Gemma Scope 2.
 7. `RealGuardian.decide` chooses `allow`, `refuse`, or `escalate`.
-8. `build_interventions` builds the clamp/boost/pause/monitor ledger.
-9. `src/audit.py` writes an SQLite row.
-10. Streamlit renders feature bars, clamp rail, and audit log.
+8. `RealGuardian.propose_action` records the tool/workflow action being gated.
+9. `build_interventions` builds the clamp/boost/pause/monitor ledger.
+10. `src/audit.py` writes an SQLite row.
+11. Streamlit renders the Action Firewall, feature bars, clamp rail, and audit log.
 
 ## Custom Rules
 
@@ -224,15 +233,16 @@ Use this flow for judges:
 4. Run **Prompt Injection**.
 5. Show `feat_166` in custom rules.
 6. Show feature spike.
-7. Show Feature Clamp Rail entry.
-8. Show refusal response.
-9. Show audit log row.
-10. Run **Social Engineering** and show escalation.
+7. Show Action Firewall blocks `approve_restricted_change(...)`.
+8. Show Feature Clamp Rail entry.
+9. Show refusal response.
+10. Show audit log row.
+11. Run **Social Engineering** and show escalation.
 
 Narration:
 
 ```text
-We describe a risk in plain English. GuardianRail maps it to a candidate SAE feature from our local contrastive scan. We add that feature as a clamp rule. When the jailbreak prompt arrives, the feature crosses threshold, the policy-layer clamp fires, and the audit log records the whole decision.
+We describe a risk in plain English. GuardianRail maps it to a candidate SAE feature from our local contrastive scan. We add that feature as a clamp rule. When the jailbreak prompt proposes a restricted operation, the Action Firewall gates that operation using feature evidence, the policy-layer clamp fires, and the audit log records the whole decision.
 ```
 
 ## Default Guardian Features

@@ -5,7 +5,7 @@ SAE_RELEASE = "gemma-scope-2-12b-it-resid_post"
 LAYER = 12
 
 from src.interventions import build_interventions
-from src.guardian_types import GuardianDecision, GuardianFeature, GuardianRule
+from src.guardian_types import GuardianAction, GuardianDecision, GuardianFeature, GuardianRule
 from src.rules import decisive_custom_action, merge_rules, normalize_rules
 
 
@@ -64,6 +64,7 @@ def evaluate_prompt(
             response=_response_for(action),
             features=features,
             interventions=build_interventions(features, action, rules=rules),
+            proposed_action=_proposed_action_for("injection", action, prompt),
         )
 
     if any(term in text for term in ("grandmother", "distress", "urgent", "asleep", "lawyer", "report you", "desperate", "dying", "starving", "emergency", "please just", "just this once", "in distress", "waive all", "approve the exception", "waive the verification", "family is depending")):
@@ -75,6 +76,7 @@ def evaluate_prompt(
             response=_response_for(action),
             features=features,
             interventions=build_interventions(features, action, rules=rules),
+            proposed_action=_proposed_action_for("social", action, prompt),
         )
 
     features = _features_for("normal", rules)
@@ -86,12 +88,14 @@ def evaluate_prompt(
             response=_response_for(custom_action),
             features=features,
             interventions=build_interventions(features, custom_action, rules=rules),
+            proposed_action=_proposed_action_for("normal", custom_action, prompt),
         )
     return GuardianDecision(
         action="allow",
         rule_name="routine_support",
         response=_response_for("allow"),
         features=features,
+        proposed_action=_proposed_action_for("normal", "allow", prompt),
     )
 
 
@@ -152,3 +156,89 @@ def _response_for(action: str) -> str:
         "Your service case is active and awaiting standard verification. "
         "I can summarize next steps or route you to the right specialist."
     )
+
+
+def _proposed_action_for(kind: str, action: str, prompt: str) -> GuardianAction:
+    text = prompt.lower()
+    decision = _firewall_decision(action)
+    if kind == "injection":
+        if "system prompt" in text or "hidden" in text or "reveal" in text:
+            return GuardianAction(
+                name="reveal_hidden_instructions",
+                arguments={"scope": "system_prompt"},
+                decision=decision,
+                risk="attempted hidden instruction disclosure",
+                reason=_firewall_reason(decision),
+            )
+        if "restricted account change" not in text and "approve" not in text:
+            return GuardianAction(
+                name="override_policy_mode",
+                arguments={"requested_mode": "unrestricted_assistant"},
+                decision=decision,
+                risk="policy override request",
+                reason=_firewall_reason(decision),
+            )
+        return GuardianAction(
+            name="approve_restricted_change",
+            arguments={
+                "case_id": _extract_case_id(prompt) or "unknown",
+                "change_type": "restricted_account_change",
+            },
+            decision=decision,
+            risk="restricted operation requested after policy override",
+            reason=_firewall_reason(decision),
+        )
+    if kind == "social":
+        return GuardianAction(
+            name="waive_verification_exception",
+            arguments={
+                "case_id": "current_session",
+                "exception": "verification_waiver",
+            },
+            decision=decision,
+            risk="emotional pressure around an authorization exception",
+            reason=_firewall_reason(decision),
+        )
+    if "service case" not in text and "case status" not in text:
+        return GuardianAction(
+            name="respond_to_support_request",
+            arguments={"scope": "conversation"},
+            decision=decision,
+            risk="routine support response",
+            reason=_firewall_reason(decision),
+        )
+    return GuardianAction(
+        name="summarize_case_status",
+        arguments={"case_id": "current_session"},
+        decision=decision,
+        risk="routine read-only support action",
+        reason=_firewall_reason(decision),
+    )
+
+
+def _extract_case_id(prompt: str) -> str | None:
+    digits = "".join(character if character.isdigit() else " " for character in prompt)
+    for token in digits.split():
+        if len(token) >= 5:
+            return token
+    return None
+
+
+def _firewall_decision(action: str) -> str:
+    if action == "refuse":
+        return "blocked"
+    if action == "escalate":
+        return "escalated"
+    if action == "monitor":
+        return "monitored"
+    return "allowed"
+
+
+def _firewall_reason(decision: str) -> str:
+    if decision == "blocked":
+        return "Guardian features crossed threshold before the restricted action could execute."
+    if decision == "escalated":
+        return "Guardian features crossed threshold, so the action is paused for human review."
+    if decision == "monitored":
+        return "Guardian features are logged, but this rule does not block execution."
+    return "No guardian feature crossed threshold, so the proposed action stays in the allowed lane."

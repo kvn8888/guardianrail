@@ -246,7 +246,7 @@ def setup_page() -> None:
         }
         .decision-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 0.55rem;
           margin-top: 0.75rem;
         }
@@ -255,6 +255,10 @@ def setup_page() -> None:
           background: #ffffff;
           padding: 0.62rem;
           min-height: 3.6rem;
+        }
+        .decision-cell .metric-value {
+          overflow-wrap: anywhere;
+          line-height: 1.15;
         }
         .evidence-layout {
           display: grid;
@@ -332,7 +336,7 @@ def setup_page() -> None:
         }
         .audit-facts {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: 0.45rem;
           margin-top: 0.55rem;
         }
@@ -514,6 +518,78 @@ def setup_page() -> None:
           color: #f5fff5;
           border-color: #9cd5b3;
           background: rgba(20,108,67,0.22);
+        }
+        .firewall-panel {
+          border: 2px solid var(--ink);
+          background: #ffffff;
+          margin: 0.85rem 0 1rem;
+          display: grid;
+          grid-template-columns: minmax(190px, 0.3fr) minmax(0, 0.7fr);
+        }
+        .firewall-status {
+          color: #ffffff;
+          background: var(--green);
+          padding: 0.9rem;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 9rem;
+        }
+        .firewall-status.blocked {
+          background: var(--red);
+        }
+        .firewall-status.escalated {
+          background: var(--amber);
+        }
+        .firewall-status.monitored {
+          background: var(--blue);
+        }
+        .firewall-label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          font-weight: 850;
+          opacity: 0.88;
+        }
+        .firewall-decision {
+          font-size: 1.95rem;
+          font-weight: 900;
+          line-height: 1;
+          margin-top: 0.24rem;
+        }
+        .firewall-mode {
+          font-size: 0.78rem;
+          opacity: 0.88;
+        }
+        .firewall-body {
+          padding: 0.9rem;
+        }
+        .action-code {
+          border: 1px solid var(--line);
+          background: var(--terminal);
+          color: #f8fff8;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.92rem;
+          line-height: 1.4;
+          padding: 0.72rem;
+          overflow-wrap: anywhere;
+          margin: 0.45rem 0 0.65rem;
+        }
+        .firewall-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+          gap: 0.55rem;
+        }
+        .firewall-fact {
+          border: 1px solid var(--line);
+          background: var(--panel-soft);
+          padding: 0.58rem;
+          min-height: 4.2rem;
+        }
+        .firewall-reason {
+          color: var(--muted);
+          font-size: 0.84rem;
+          line-height: 1.4;
+          margin-top: 0.55rem;
         }
         .feature-row {
           border: 1px solid var(--line);
@@ -760,6 +836,8 @@ def setup_page() -> None:
           .decision-panel,
           .decision-grid,
           .evidence-layout,
+          .firewall-panel,
+          .firewall-grid,
           .proof-track,
           .audit-facts {
             grid-template-columns: 1fr;
@@ -851,8 +929,8 @@ def render_ops_panel(conn, backend: str) -> None:
     mode = "real GPU path" if backend == "real" else "mock UI path"
 
     steps = [
-        ("Balance Check", "allow"),
-        ("Prompt Injection", "refuse"),
+        ("Read-only Action", "allow"),
+        ("Blocked Action", "refuse"),
         ("Human Escalation", "escalate"),
     ]
     step_html = "".join(
@@ -993,8 +1071,10 @@ def render_decision_summary(decision, conn) -> None:
     latest_audit = _latest_session_event(conn)
     action = decision.action
     action_label = _action_label(action)
+    proposed_action = getattr(decision, "proposed_action", None)
+    proposed_name = proposed_action.name if proposed_action else "none"
+    firewall_label = _firewall_label(proposed_action.decision if proposed_action else action)
     triggered = [feature for feature in decision.features if feature.activation >= feature.threshold]
-    intervention_label = _intervention_label(decision)
     audit_status = "Saved" if latest_audit else "Pending"
     reason = _decision_reason(decision, top_feature, triggered)
 
@@ -1017,8 +1097,12 @@ def render_decision_summary(decision, conn) -> None:
                 <div class="metric-value">feat_{top_feature.feature_id}</div>
               </div>
               <div class="decision-cell">
-                <div class="metric-label">Action</div>
-                <div class="metric-value">{escape(intervention_label)}</div>
+                <div class="metric-label">Proposed</div>
+                <div class="metric-value">{escape(proposed_name)}</div>
+              </div>
+              <div class="decision-cell">
+                <div class="metric-label">Firewall</div>
+                <div class="metric-value">{escape(firewall_label)}</div>
               </div>
               <div class="decision-cell">
                 <div class="metric-label">Audit</div>
@@ -1048,6 +1132,47 @@ def render_prompt_and_response(decision) -> None:
     )
 
 
+def render_action_firewall(decision) -> None:
+    proposed_action = getattr(decision, "proposed_action", None)
+    if proposed_action is None:
+        return
+    status = proposed_action.decision
+    status_class = status if status in {"allowed", "blocked", "escalated", "monitored"} else "monitored"
+    action_call = f"{proposed_action.name}({_format_action_arguments(proposed_action.arguments)})"
+    st.markdown(
+        f"""
+        <div class="firewall-panel">
+          <div class="firewall-status {escape(status_class)}">
+            <div>
+              <div class="firewall-label">Action Firewall</div>
+              <div class="firewall-decision">{escape(_firewall_label(status))}</div>
+            </div>
+            <div class="firewall-mode">feature-gated before execution</div>
+          </div>
+          <div class="firewall-body">
+            <div class="section-kicker">Proposed Agent Action</div>
+            <div class="action-code">{escape(action_call)}</div>
+            <div class="firewall-grid">
+              <div class="firewall-fact">
+                <div class="metric-label">Risk</div>
+                <div class="metric-value">{escape(proposed_action.risk)}</div>
+              </div>
+              <div class="firewall-fact">
+                <div class="metric-label">Why</div>
+                <div class="metric-value">{escape(proposed_action.reason)}</div>
+              </div>
+            </div>
+            <div class="firewall-reason">
+              This is the wedge over a text classifier: GuardianRail is not only judging the final answer.
+              It gates the agent's proposed operation using internal feature evidence before a tool or workflow step runs.
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_latest_audit(conn) -> None:
     latest = _latest_session_event(conn)
     if latest is None:
@@ -1069,6 +1194,7 @@ def render_latest_audit(conn) -> None:
           <div class="section-title">Run #{int(row['id'])} saved</div>
           <div class="audit-facts">
             <div class="audit-fact"><div class="metric-label">Action</div><div class="metric-value">{escape(str(row['action']))}</div></div>
+            <div class="audit-fact"><div class="metric-label">Firewall</div><div class="metric-value">{escape(str(row.get('firewall') or 'n/a'))}</div></div>
             <div class="audit-fact"><div class="metric-label">Feature</div><div class="metric-value">feat_{escape(str(row.get('feature_id') or 'n/a'))}</div></div>
             <div class="audit-fact"><div class="metric-label">Activation</div><div class="metric-value">{_format_optional_float(row.get('activation'))}</div></div>
             <div class="audit-fact"><div class="metric-label">Intervention</div><div class="metric-value">{escape(str(row['intervention']))}</div></div>
@@ -1332,6 +1458,8 @@ def render_audit(conn) -> None:
             "id",
             "created_at",
             "action",
+            "firewall",
+            "proposed_action",
             "intervention",
             "rule_name",
             "feature_id",
@@ -1377,6 +1505,9 @@ def run_prompt(conn, prompt: str, backend: str) -> None:
                         intervention.__dict__ for intervention in decision.interventions
                     ],
                     "intervention_mode": "policy-layer",
+                    "proposed_action": decision.proposed_action.__dict__
+                    if decision.proposed_action
+                    else None,
                     "custom_rules": custom_rules,
                 },
             ),
@@ -1448,6 +1579,28 @@ def _intervention_label(decision) -> str:
     return " + ".join(kind.title() for kind in kinds)
 
 
+def _firewall_label(decision: str) -> str:
+    labels = {
+        "allowed": "Allowed",
+        "blocked": "Blocked",
+        "escalated": "Escalated",
+        "monitored": "Monitored",
+        "allow": "Allowed",
+        "refuse": "Blocked",
+        "escalate": "Escalated",
+        "monitor": "Monitored",
+    }
+    return labels.get(decision, decision.title())
+
+
+def _format_action_arguments(arguments: dict[str, str]) -> str:
+    if not arguments:
+        return ""
+    return ", ".join(
+        f"{key}={json.dumps(str(value))}" for key, value in arguments.items()
+    )
+
+
 def _latest_session_event(conn) -> dict | None:
     session_id = st.session_state.get("session_id")
     events = read_events(conn, limit=50)
@@ -1465,9 +1618,9 @@ def _proof_track_html(decision, latest_audit: dict | None) -> str:
     risk_class = "stop" if decision.action == "refuse" else "warn" if decision.action == "escalate" else "done"
     steps = [
         ("1", "Prompt", True, "done"),
-        ("2", "Signals", True, "done"),
-        ("3", "Risk" if triggered else "Clear", True, risk_class if triggered else "done"),
-        ("4", f"{_action_label(decision.action)} response", action_taken and response_ready, risk_class),
+        ("2", "Proposed action", getattr(decision, "proposed_action", None) is not None, "done"),
+        ("3", "Signals", True, "done"),
+        ("4", "Firewall" if triggered else "Clear", action_taken and response_ready, risk_class),
         ("5", "Saved", audit_saved, "done"),
     ]
     html = "".join(
@@ -1491,6 +1644,13 @@ def _audit_display_row(event: dict) -> dict:
     except json.JSONDecodeError:
         metadata = {}
     interventions = metadata.get("interventions") or []
+    proposed_action = metadata.get("proposed_action") or {}
+    if proposed_action:
+        row["proposed_action"] = proposed_action.get("name", "n/a")
+        row["firewall"] = proposed_action.get("decision", "n/a")
+    else:
+        row["proposed_action"] = "n/a"
+        row["firewall"] = "n/a"
     if interventions:
         row["intervention"] = ", ".join(
             _format_intervention_summary(intervention) for intervention in interventions
@@ -1583,6 +1743,7 @@ def main() -> None:
     render_mock_banner(backend)
     render_demo_controls(conn, backend)
     render_decision_summary(st.session_state.last_decision, conn)
+    render_action_firewall(st.session_state.last_decision)
 
     left, right = st.columns([0.9, 1.1], gap="large")
     with left:

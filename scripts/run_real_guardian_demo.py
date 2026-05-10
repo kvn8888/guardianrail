@@ -46,6 +46,14 @@ def main() -> None:
         decision = guardian.run_and_audit(conn, session_id, prompt)
         print(f"action: {decision.action}")
         print(f"rule: {decision.rule_name}")
+        if decision.proposed_action is not None:
+            arguments = ", ".join(
+                f"{key}={value}" for key, value in decision.proposed_action.arguments.items()
+            )
+            print(
+                f"firewall: {decision.proposed_action.decision} "
+                f"{decision.proposed_action.name}({arguments})"
+            )
         print(f"response: {decision.response}")
         print("features:")
         for feature in decision.features:

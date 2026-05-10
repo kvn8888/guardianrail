@@ -36,9 +36,19 @@ class GuardianIntervention:
 
 
 @dataclass(frozen=True)
+class GuardianAction:
+    name: str
+    arguments: dict[str, str]
+    decision: str
+    risk: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class GuardianDecision:
     action: str
     rule_name: str
     response: str
     features: list[GuardianFeature]
     interventions: list[GuardianIntervention] = field(default_factory=list)
+    proposed_action: GuardianAction | None = None

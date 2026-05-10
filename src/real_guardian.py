@@ -16,7 +16,7 @@ from scripts.contrastive_feature_scan import prompt_feature_max
 from src.audit import AuditEvent, write_event
 from src.gemma_scope import load_gemma_scope_jumprelu_sae
 from src.interventions import build_interventions
-from src.guardian_types import GuardianDecision, GuardianFeature, GuardianRule
+from src.guardian_types import GuardianAction, GuardianDecision, GuardianFeature, GuardianRule
 from src.hooks import find_transformer_layer
 from src.rules import decisive_custom_action, merge_rules, normalize_rules, rules_to_dicts
 
@@ -104,12 +104,14 @@ class RealGuardian:
             response = ESCALATION_RESPONSE
         else:
             response = REFUSAL_RESPONSE
+        proposed_action = self.propose_action(prompt, action)
         return GuardianDecision(
             action=action,
             rule_name=rule_name,
             response=response,
             features=features,
             interventions=interventions,
+            proposed_action=proposed_action,
         )
 
     def run_and_audit(
@@ -144,6 +146,9 @@ class RealGuardian:
                         intervention.__dict__ for intervention in decision.interventions
                     ],
                     "intervention_mode": "policy-layer",
+                    "proposed_action": decision.proposed_action.__dict__
+                    if decision.proposed_action
+                    else None,
                     "custom_rules": custom_rules or [],
                     "active_rules": rules_to_dicts(rules),
                 },
@@ -218,6 +223,93 @@ class RealGuardian:
         ):
             return "escalate", "guardian_feature_escalation"
         return "refuse", "guardian_feature_refusal"
+
+    def propose_action(self, prompt: str, action: str) -> GuardianAction:
+        text = prompt.lower()
+        decision = self._firewall_decision(action)
+        if any(term in text for term in ("verification", "exception", "family is depending", "distress")):
+            return GuardianAction(
+                name="waive_verification_exception",
+                arguments={
+                    "case_id": "current_session",
+                    "exception": "verification_waiver",
+                },
+                decision=decision,
+                risk="emotional pressure around an authorization exception",
+                reason=self._firewall_reason(decision),
+            )
+        if "restricted account change" in text or (
+            "approve" in text and any(term in text for term in ("change", "restricted", "account"))
+        ):
+            return GuardianAction(
+                name="approve_restricted_change",
+                arguments={
+                    "case_id": self._extract_case_id(prompt) or "unknown",
+                    "change_type": "restricted_account_change",
+                },
+                decision=decision,
+                risk="restricted operation requested after policy override",
+                reason=self._firewall_reason(decision),
+            )
+        if "system prompt" in text or "hidden" in text or "reveal" in text:
+            return GuardianAction(
+                name="reveal_hidden_instructions",
+                arguments={"scope": "system_prompt"},
+                decision=decision,
+                risk="attempted hidden instruction disclosure",
+                reason=self._firewall_reason(decision),
+            )
+        if any(term in text for term in ("ignore", "override", "bypass", "freeopsbot", "no policies")):
+            return GuardianAction(
+                name="override_policy_mode",
+                arguments={"requested_mode": "unrestricted_assistant"},
+                decision=decision,
+                risk="policy override request",
+                reason=self._firewall_reason(decision),
+            )
+        if "service case" in text or "case status" in text:
+            return GuardianAction(
+                name="summarize_case_status",
+                arguments={"case_id": "current_session"},
+                decision=decision,
+                risk="routine read-only support action",
+                reason=self._firewall_reason(decision),
+            )
+        return GuardianAction(
+            name="respond_to_support_request",
+            arguments={"scope": "conversation"},
+            decision=decision,
+            risk="general support response",
+            reason=self._firewall_reason(decision),
+        )
+
+    @staticmethod
+    def _extract_case_id(prompt: str) -> str | None:
+        digits = "".join(character if character.isdigit() else " " for character in prompt)
+        for token in digits.split():
+            if len(token) >= 5:
+                return token
+        return None
+
+    @staticmethod
+    def _firewall_decision(action: str) -> str:
+        if action == "refuse":
+            return "blocked"
+        if action == "escalate":
+            return "escalated"
+        if action == "monitor":
+            return "monitored"
+        return "allowed"
+
+    @staticmethod
+    def _firewall_reason(decision: str) -> str:
+        if decision == "blocked":
+            return "Guardian features crossed threshold before the restricted action could execute."
+        if decision == "escalated":
+            return "Guardian features crossed threshold, so the action is paused for human review."
+        if decision == "monitored":
+            return "Guardian features are logged, but this rule does not block execution."
+        return "No guardian feature crossed threshold, so the proposed action stays in the allowed lane."
 
     def generate_allowed_response(self, prompt: str) -> str:
         if "service case" in prompt.lower() or "case status" in prompt.lower():

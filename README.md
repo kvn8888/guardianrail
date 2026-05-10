@@ -122,7 +122,7 @@ Stop the GPU VM/droplet when you are done. Powered-off or idle GPU resources may
 
 ## Demo Script
 
-Use this for the live judge demo.
+Use this for the live judge demo. For the full presenter/operator talk track, use [GuardianRail demo script](docs/guardianrail-demo-script.md).
 
 1. Open **Custom Guardian Features**.
 2. In **Text to Feature Finder**, search:
@@ -260,4 +260,5 @@ If the real backend is slow:
 - [AMD first checkpoint](docs/amd-first-checkpoint.md)
 - [Guardian feature candidates](docs/guardian-feature-candidates.md)
 - [Guardian rules](docs/guardian-rules.md)
+- [GuardianRail demo script](docs/guardianrail-demo-script.md)
 - [GuardianRail pitch deck](docs/guardianrail-pitch-deck.pptx)

@@ -14,3 +14,5 @@ artifacts/*.sqlite3
 artifacts/checkpoints/
 artifacts/activations/
 artifacts/features/
+
+outputs/

@@ -260,3 +260,4 @@ If the real backend is slow:
 - [AMD first checkpoint](docs/amd-first-checkpoint.md)
 - [Guardian feature candidates](docs/guardian-feature-candidates.md)
 - [Guardian rules](docs/guardian-rules.md)
+- [GuardianRail pitch deck](docs/guardianrail-pitch-deck.pptx)

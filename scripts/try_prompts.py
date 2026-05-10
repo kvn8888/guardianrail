@@ -1,5 +1,5 @@
 """
-Run your own prompts through GuardianRail and see the safety decision.
+Run your own prompts through SafetyRail and see the safety decision.
 
 Usage:
   python scripts/try_prompts.py
@@ -82,7 +82,7 @@ def run_prompt(prompt: str, label: str = "Custom", conn=None, audit: bool = True
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Try prompts through GuardianRail.")
+    parser = argparse.ArgumentParser(description="Try prompts through SafetyRail.")
     parser.add_argument("--prompt", "-p", help="Single prompt to evaluate.")
     parser.add_argument("--all", "-a", action="store_true", help="Run all example prompts.")
     parser.add_argument("--no-audit", action="store_true", help="Skip writing to audit log.")
@@ -102,7 +102,7 @@ def main() -> None:
         return
 
     # Interactive mode
-    print(f"{BOLD}GuardianRail — interactive prompt tester{RESET}")
+    print(f"{BOLD}SafetyRail — interactive prompt tester{RESET}")
     print("Type a prompt and press Enter. Ctrl-C to quit.\n")
     while True:
         try:
